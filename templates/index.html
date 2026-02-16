@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Mikro Arena: Deck Builder</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://bernardo-castilho.github.io/DragDropTouch/DragDropTouch.js"></script>
+    <style>
+        /* Styl dla ręki przeciwnika (małe karty u góry) */
+        #enemy-hand-container {
+            position: absolute;
+            top: 10px;
+            right: 20px; /* Po prawej stronie paska wroga */
+            display: flex;
+            gap: 5px;
+        }
+        .mini-card {
+            width: 40px; height: 50px;
+            background: #34495e; border: 1px solid #7f8c8d;
+            border-radius: 4px; display: flex; justify-content: center; align-items: center;
+            font-size: 20px; color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="top-ui">
+        <div class="hp-box">
+            <div class="enemy-atp-badge">
+                <span id="enemy-atp-val" class="enemy-atp-val">10</span>
+                <span class="enemy-atp-lbl">ATP</span>
+            </div>
+            <div class="hp-label">ORGANIZM WROGA</div>
+            <div class="hp-bar-bg"><div id="enemy-hp-fill" class="hp-bar-fill"></div></div>
+            <div id="enemy-hp-text" class="hp-text">100 HP</div>
+        </div>
+
+        <div id="enemy-hand-container"></div>
+
+        <div id="phase-indicator">FAZA: PLANOWANIE</div>
+
+        <div class="hp-box">
+            <div class="hp-label">TWÓJ ORGANIZM</div>
+            <div class="hp-bar-bg"><div id="player-hp-fill" class="hp-bar-fill"></div></div>
+            <div id="player-hp-text" class="hp-text">100 HP</div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+    </div>
+
+    <button id="action-btn">ZAKOŃCZ TURĘ (WALKA)</button>
+
+    <div id="bottom-ui">
+        <div id="atp-container">
+            <div id="atp-icon">⚡</div>
+            <div id="atp-value">10</div>
+            <div id="atp-label">ENERGIA</div>
+        </div>
+
+        <div id="deck-container"></div>
+    </div>
+
+    <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

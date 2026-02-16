@@ -1,0 +1,49 @@
+🔬 Koncepcja Główna
+Gra jest taktycznym symulatorem walki mikroorganizmów. Gracz zarządza własną kolonią (talią kart) i staje do walki z wrogimi infekcjami (AI). Zamiast bezpośrednio sterować jednostkami, gracz rzuca je na pole bitwy, modyfikuje za pomocą genów, a następnie obserwuje, jak wchodzą w interakcje w oparciu o silnik fizyczny symulujący zachowanie prawdziwych komórek w płynie.
+
+Gra dzieli się na dwa główne i płynnie przenikające się tryby: Laboratorium (Szalka Petriego) oraz Walkę.
+
+🧫 Tryb 1: Laboratorium Genetyczne (Szalka Petriego)
+To bezpieczna przystań i strategiczne serce gry, do którego gracz trafia pomiędzy walkami.
+
+Wygląd i Fizyka: Ekran przedstawia okrągłą szalkę Petriego. Fizyka gry zamyka mikroorganizmy wewnątrz okręgu, od którego delikatnie się odbijają, pływając w pożywce.
+
+Crafting i Ulepszanie (Darmowe): Gracz ma tu dostęp do całej swojej talii (jednostek i mutacji). Może za darmo zrzucać jednostki na szalkę, a następnie przeciągać na nie karty mutacji (np. "Gen Tanka" czy "Enzymy Regeneracyjne").
+
+Zapisywanie Kart (Persistence): Gracz może "chwycić" ulepszoną na szalce jednostkę i przeciągnąć ją z powrotem do swojej talii. Gra zapisuje wszystkie nałożone na nią geny (tzw. Procent składany statystyk) i tworzy nową, potężniejszą kartę, która będzie mogła zostać użyta w walce (np. Wirus z dwoma Genami Tanka i szybkością).
+
+Mechanika Inwestycji (Dochód): Jednostki, które gracz zostawi na szalce i nie schowa do talii, stają się "farmą". Każdy mikrob ma określoną wartość generowanej energii. Zostawienie na szalce bakterii czy niesporczaków zwiększy co-turowy przyrost energii (ATP) gracza w trakcie nadchodzącej walki. Gracz musi decydować: Czy zabrać potężną jednostkę do walki, czy zostawić ją w labie, by generowała surowce?
+
+⚔️ Tryb 2: Walka (Auto-battler)
+Arena, na której sprawdzana jest siła wyhodowanej kolonii. Walka toczy się w cyklu turowym na prostokątnej planszy.
+
+Zasoby (ATP i HP): Gracz używa wygenerowanej energii (ATP), by zagrywać karty z ręki. Celem jest zbicie punktów zdrowia (HP) wrogiej kolonii do zera i obrona własnej.
+
+Fazy Walki:
+
+Planowanie Gracza: Czas zatrzymuje się. Gracz (limitowany przez ATP) zrzuca jednostki na planszę i aplikuje mutacje.
+
+Atak Gracza: Jednostki ruszają do walki, zderzają się z wrogami, zadają obrażenia.
+
+Ruch Wroga (AI): Sztuczna inteligencja analizuje swoje karty, kupuje jednostki i (co ważne!) inteligentnie aplikuje mutacje na własnych podwładnych, omijając tych, którzy już dany bonus posiadają.
+
+Kontratak Wroga: Czas na fizyczne rozwiązanie ataku wroga. Na koniec tej fazy naliczany jest nowy dochód (baza + to, co produkuje szalka w laboratorium) i gracz dobiera nowe karty.
+
+Uczciwe Losowanie i Podgląd Talii: Przed walką talia jest tasowana. Aby gracz mógł planować, po prawej stronie znajduje się wizualny pasek "Podglądu Talii" – widać w nim stos kart oczekujących na dobranie, z wyraźnym oznaczeniem (złota ramka, ikony), gdzie ukrywają się te najbardziej ulepszone okazy.
+
+🃏 Mechanika Kart i Genetyki
+Jednostki (Mikroby):
+
+Wirus (🦠): Tani, szybki, kruchy. Generuje niski dochód.
+
+Bakteria (💊): Zbalansowana, średni koszt. Dobry dochód.
+
+Niesporczak (🐛): Drogi, bardzo powolny, niezwykle wytrzymały. Generuje ogromny dochód w labie. Gdy jego HP spadnie do zera, nie ginie, lecz zapada w stan anabiozy (staje się szarą, nieaktywną tarczą dla innych).
+
+Karty Mutacji (Geny):
+
+Gen Tanka (🛡️): Zwiększa masę, rozmiar i mnoży HP (procent składany przy wielokrotnym nałożeniu).
+
+Enzymy (❤️‍🩹): Dają jednostce zdolność regeneracji zdrowia w czasie.
+
+Turbo (⚡): Znacznie zwiększa prędkość poruszania się.
