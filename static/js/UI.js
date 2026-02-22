@@ -15,6 +15,11 @@ const deckCountLabel = document.getElementById('deck-count');
 const deckList = document.getElementById('deck-list');
 
 const deckContainer = document.getElementById('deck-container');
+// --- TWORZENIE PANELU PORADNIKA ---
+const tutorialPanel = document.createElement('div');
+tutorialPanel.id = 'tutorial-panel';
+gameContainer.appendChild(tutorialPanel);
+
 
 deckContainer.addEventListener('wheel', (e) => {
     if (deckContainer.scrollWidth > deckContainer.clientWidth) {
@@ -214,7 +219,12 @@ export function updateUI() {
         const totalIncome = 5 + (state.playerIncome || 0) + battleIncome;
         atpValueLabel.innerHTML = `${state.playerATP} <span style="font-size:14px; color:#2ecc71; font-weight:bold;">(+${totalIncome})</span>`;
     }
-
+    if (state.phase === 'LAB_MODE') {
+        deckPreviewContainer.style.display = 'none';
+    } else {
+        deckPreviewContainer.style.display = 'flex';
+        renderDeckPreview();
+    }
     enemyAtpLabel.innerText = state.enemyATP;
     playerHpText.innerText = Math.max(0, Math.ceil(state.playerHP)) + " HP";
     enemyHpText.innerText = Math.max(0, Math.ceil(state.enemyHP)) + " HP";
@@ -231,8 +241,83 @@ export function updateUI() {
         deckPreviewContainer.style.display = 'flex';
         renderDeckPreview();
     }
+    updateTutorialText();
 }
+// Funkcja pomocnicza zmieniająca treść w zależności od fazy
+function updateTutorialText() {
+    let title = "";
+    let content = "";
+    let borderColor = "#3498db"; // Domyślny niebieski
 
+    switch (state.phase) {
+        case 'LAB_MODE':
+            title = "🔬 Laboratorium";
+            borderColor = "#00ffea";
+            content = `
+                <ul>
+                    <li><b>Przeciągaj jednostki</b> z talii na szalkę.</li>
+                    <li><b>Ulepszaj je</b> upuszczając na nie geny (mutacje).</li>
+                    <li>Przeciągnij istotę w dół (lub użyj 'Pobierz'), by zapisać ją do talii.</li>
+                </ul>
+                <div style="margin-top:10px; font-size:11px; color:#bdc3c7;">
+                    Zbuduj armię i kliknij "Przejdź do walki".
+                </div>
+            `;
+            break;
+        case 'PLAYER_PLANNING':
+            title = "⏱️ Faza Planowania";
+            borderColor = "#f1c40f";
+            content = `
+                <ul>
+                    <li>Upuszczaj jednostki na arenę. Kosztują one <b>ATP</b>.</li>
+                    <li>Kierunek strzałki wskazuje, gdzie polecą.</li>
+                    <li>Wybieraj mądrze – Twoje zasoby są ograniczone!</li>
+                </ul>
+                <div style="margin-top:10px; font-size:11px; color:#bdc3c7;">
+                    Gdy skończysz, kliknij "Rozpocznij Atak".
+                </div>
+            `;
+            break;
+        case 'PLAYER_COMBAT':
+            title = "⚔️ Twój Atak!";
+            borderColor = "#2ecc71";
+            content = `
+                <ul>
+                    <li>Jednostki walczą i zadają sobie obrażenia przy zderzeniu!</li>
+                    <li>Zbieraj upuszczoną, złotą energię ⚡, by zyskać dodatkowe ATP.</li>
+                </ul>
+            `;
+            break;
+        case 'ENEMY_PLANNING':
+            title = "🛡️ Ruch Wroga";
+            borderColor = "#e74c3c";
+            content = `
+                <p>Przeciwnik analizuje sytuację na planszy i kupuje swoje jednostki...</p>
+                <div style="text-align:center; font-size:20px; margin-top:10px;">⏳</div>
+            `;
+            break;
+        case 'ENEMY_COMBAT':
+            title = "🔴 Obrona!";
+            borderColor = "#ff0055";
+            content = `
+                <ul>
+                    <li>Utrzymaj pozycję! Wróg kontratakuje.</li>
+                    <li>Każda jednostka, która przetrwa, doliczy Ci ATP w następnej turze.</li>
+                </ul>
+            `;
+            break;
+    }
+
+    // Zmieniamy kolor paska z boku i tytułu
+    tutorialPanel.style.borderRightColor = borderColor;
+
+    if(window.innerWidth <= 1050) {
+        tutorialPanel.style.borderTopColor = borderColor;
+        tutorialPanel.style.borderRightColor = 'transparent'; // Resetujemy prawy na mobilkach
+    }
+
+    tutorialPanel.innerHTML = `<h3 style="color: ${borderColor}">${title}</h3>${content}`;
+}
 function updateCardAvailability() {
     const cards = document.querySelectorAll('.card');
     cards.forEach(card => {
@@ -313,9 +398,16 @@ function findUnitAt(mx, my) {
 canvas.addEventListener('dragover', (e) => {
     e.preventDefault();
     if (!state.dragPreview) return;
+
     const rect = canvas.getBoundingClientRect();
-    state.dragPreview.x = e.clientX - rect.left;
-    state.dragPreview.y = e.clientY - rect.top;
+    // NOWOŚĆ: Obliczamy rzeczywistą skalę płótna
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    // Mnożymy pozycję myszy przez skalę
+    state.dragPreview.x = (e.clientX - rect.left) * scaleX;
+    state.dragPreview.y = (e.clientY - rect.top) * scaleY;
+
     if (state.dragPreview.category === 'mutation') {
         const target = findUnitAt(state.dragPreview.x, state.dragPreview.y);
         if (target && target.owner === 'player') {

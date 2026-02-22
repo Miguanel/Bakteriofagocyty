@@ -85,8 +85,15 @@ export function labLoop(deltaTime) {
 
 export function handleLabInteraction(type, e) {
     const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+
+    // --- NOWOŚĆ: Obliczanie skali płótna (naprawia przesunięcie kursora) ---
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    // Zastosowanie mnożnika skali do pozycji myszy
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+
     mousePos = { x: mx, y: my };
 
     if (type === 'mousedown') {

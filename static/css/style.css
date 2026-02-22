@@ -518,3 +518,66 @@ canvas {
         gap: 15px;
     }
 }
+
+/* --- DYNAMICZNY PORADNIK (TUTORIAL) - WERSJA POD ARENĄ --- */
+#tutorial-panel {
+    position: relative;
+    width: 100%;
+    max-width: 800px; /* Dopasowanie do szerokości płótna */
+    margin: 15px auto 0 auto; /* Odstęp od góry i wyśrodkowanie */
+    background: rgba(20, 30, 40, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-top: 4px solid #3498db; /* Kolorowy pasek na górze */
+    border-radius: 12px;
+    padding: 15px;
+    color: #ecf0f1;
+    font-size: 14px;
+    line-height: 1.5;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+#tutorial-panel h3 {
+    margin: 0 0 10px 0;
+    font-size: 15px;
+    color: #3498db;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 5px;
+}
+
+#tutorial-panel ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+#tutorial-panel li {
+    margin-bottom: 5px;
+}
+
+/* Responsywność: Na mniejszych ekranach chowamy panel na górę */
+@media (max-width: 1050px) {
+    #tutorial-panel {
+        position: relative;
+        /* Resetujemy położenie */
+        left: 0;
+        top: 0;
+        width: 100%;
+        max-width: 900px;
+        margin-bottom: 15px;
+
+        /* Resetujemy paski boczne i dajemy górny */
+        border-right: none;
+        border-left: none;
+        border-top: 4px solid #3498db;
+    }
+
+    #game-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+}

@@ -1,12 +1,13 @@
 import { state, randomizePlayerAngle, initializeDecks, drawCard } from './GameState.js';
 import { TURN_DURATION, UNIT_TYPES, INCOME_PER_TURN, PHASES } from './constants.js';
 import { gameContainer, canvas, ctx } from './Canvas.js';
-import { resolveCollisions, resolveCircularBounds } from './Physics.js';
+import { resolveCollisions, resolveCircularBounds, resolveRectangularBounds } from './Physics.js';
 import { drawUnitVisuals, drawVectorArrow } from './Graphics.js';
 import { initDragAndDrop, updateUI, showDamageNumber, renderHands } from './UI.js';
 import { spawnEnemyTurn } from './AI.js';
 import { labLoop, handleLabInteraction } from './Lab.js';
 import { Unit } from './Unit.js';
+
 
 const phaseLabel = document.getElementById('phase-indicator');
 const actionBtn = document.getElementById('action-btn');
@@ -136,7 +137,28 @@ actionBtn.addEventListener('click', () => {
         state.dragPreview = null;
     }
 });
+function drawArena() {
+    ctx.save();
+    // Ciemne tło bitewne
+    ctx.fillStyle = 'rgba(15, 20, 25, 0.9)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Delikatna siatka taktyczna
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    for(let i = 0; i < canvas.width; i += 50) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+    }
+    for(let i = 0; i < canvas.height; i += 50) {
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+    }
+
+    // Krwista, czerwona ramka dookoła pola walki
+    ctx.strokeStyle = 'rgba(231, 76, 60, 0.5)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+    ctx.restore();
+}
 let lastTime = 0;
 function gameLoop(timestamp) {
     const deltaTime = timestamp - lastTime;
@@ -147,6 +169,7 @@ function gameLoop(timestamp) {
         if (state.dragPreview) drawDragPreview();
     } else {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawArena();
         switch (state.phase) {
             case PHASES.PLAYER_PLANNING:
                 phaseLabel.innerText = "TWÓJ RUCH: PLANOWANIE";
@@ -219,8 +242,10 @@ function runPhysics(deltaTime) {
     const subDeltaTime = deltaTime / STEPS;
     for (let i = 0; i < STEPS; i++) {
         resolveCollisions();
-        // Zabezpieczenie na wypadek braku funkcji
-        if(typeof resolveCircularBounds === 'function') resolveCircularBounds();
+
+        // Używamy prostokątnej fizyki podczas walki!
+        resolveRectangularBounds();
+
         state.units.forEach(u => u.update(subDeltaTime, 1.0/STEPS));
     }
     state.units = state.units.filter(u => u.hp > 0 || (u.type === 'tardigrade' && u.isDormant));

@@ -76,7 +76,30 @@ export function resolveCollisions() {
         }
     }
 }
-
+export function resolveRectangularBounds() {
+    state.units.forEach(u => {
+        // Lewa ściana
+        if (u.x - u.radius < 0) {
+            u.x = u.radius;
+            u.vx = Math.abs(u.vx) * 0.8; // Odbicie ze stratą 20% prędkości
+        }
+        // Prawa ściana
+        if (u.x + u.radius > canvas.width) {
+            u.x = canvas.width - u.radius;
+            u.vx = -Math.abs(u.vx) * 0.8;
+        }
+        // Górna ściana
+        if (u.y - u.radius < 0) {
+            u.y = u.radius;
+            u.vy = Math.abs(u.vy) * 0.8;
+        }
+        // Dolna ściana
+        if (u.y + u.radius > canvas.height) {
+            u.y = canvas.height - u.radius;
+            u.vy = -Math.abs(u.vy) * 0.8;
+        }
+    });
+}
 export function resolveCircularBounds() {
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
