@@ -1314,3 +1314,54 @@ body.cosmic-theme {
     .card-main-icon { font-size: 25px; }
     .deck-row-label { font-size: 8px; }
 }
+/* --- ROZWIJANE OPCJE ORGANIZMU (HOVER) --- */
+.detail-item {
+    background: rgba(255,255,255,0.05);
+    border: 2px dashed transparent;
+    border-left: 4px solid var(--active-color);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transform-origin: left center;
+}
+
+.detail-main { display: flex; align-items: center; width: 100%; }
+.detail-item.drag-over { border-color: #2ecc71; background: rgba(46, 204, 113, 0.3); transform: scale(1.02); }
+
+.detail-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.03);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    z-index: 10;
+}
+
+.unit-actions-grid {
+    display: none; /* Domyślnie ukryte */
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(255,255,255,0.2);
+}
+
+/* ZMIANA: Automatyczne rozwijanie na Hoverze! */
+.detail-item:hover .unit-actions-grid {
+    display: grid;
+    animation: fadeIn 0.3s forwards;
+}
+
+.detail-item:hover .extract-mut-btn {
+    display: flex;
+    animation: fadeIn 0.3s forwards;
+}
+
+.unit-action-btn {
+    background: rgba(0,0,0,0.5); border: 1px solid var(--active-color); color: white;
+    padding: 8px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: bold; transition: 0.2s;
+}
+.unit-action-btn.extract-btn:hover { background: #27ae60; border-color: #2ecc71; }
+.unit-action-btn.stats-btn:hover { background: #3498db; border-color: #2980b9; }
+.unit-action-btn.discard-btn { grid-column: span 2; }
+.unit-action-btn.discard-btn:hover { background: #c0392b; border-color: #e74c3c; }

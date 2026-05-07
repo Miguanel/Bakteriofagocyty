@@ -3,6 +3,15 @@ import { UNIT_TYPES, MUTATION_TYPES } from './constants.js';
 import { Unit } from './Unit.js';
 import { gameContainer, canvas } from './Canvas.js';
 
+// BEZPIECZNIK TUTORIALA - O to krzyczała konsola!
+const tutorialPanel = document.getElementById('tutorial-panel') || (function() {
+    const tp = document.createElement('div');
+    tp.id = 'tutorial-panel';
+    const container = document.getElementById('game-container') || document.body;
+    container.appendChild(tp);
+    return tp;
+})();
+
 const enemyHandContainer = document.getElementById('enemy-hand-container');
 const atpValueLabel = document.getElementById('atp-value');
 const enemyAtpLabel = document.getElementById('enemy-atp-val');
@@ -54,7 +63,6 @@ export function renderHands() {
     units.sort(sortLogic);
     mutations.sort(sortLogic);
 
-    // --- NOWOŚĆ: Dwa paski kart ---
     units.forEach(cardData => {
         const cardEl = createCardElement(cardData, cardData.originalIndex);
         cardEl.addEventListener('click', () => { if(!state.dragPreview) showBioModal(cardData); });
@@ -95,7 +103,6 @@ function createCardElement(cardData, index) {
         info = UNIT_TYPES[cardData.type];
         let currentHp = info.hp;
         let currentAtk = info.atk;
-        let totalIncome = info.income || 0;
 
         if (cardData.savedMutations && cardData.savedMutations.length > 0) {
             cardData.savedMutations.forEach(mutCode => {
@@ -103,8 +110,7 @@ function createCardElement(cardData, index) {
                 else if (mutCode === 'TOXIN_PLASMID') { currentAtk += 5; currentHp *= 0.7; }
                 else if (mutCode === 'APOPTOSIS') currentAtk += 15;
                 else if (mutCode === 'LIPIDS') currentHp += 20;
-                else if (mutCode === 'CHLOROPLASTS') totalIncome += 3;
-                else if (mutCode === 'SYMBIOSIS') { currentHp += 15; totalIncome += 2; }
+                else if (mutCode === 'SYMBIOSIS') { currentHp += 15; }
                 else if (mutCode === 'PREDATOR_DNA') { currentAtk += 10; }
                 else if (mutCode === 'SPIKED_ARMOR') { currentHp += 20; }
                 else if (mutCode === 'MUTANT_BLOOD') { currentAtk += 5; }
@@ -114,23 +120,16 @@ function createCardElement(cardData, index) {
         currentHp = Math.max(1, Math.ceil(currentHp));
         currentAtk = Math.ceil(currentAtk);
 
-        let incomeHtml = '';
-        if (totalIncome > 0) {
-            incomeHtml = `<div class="income-badge" title="Dochód ATP">+${totalIncome}⚡</div>`;
-        }
-
         let upgHtml = '';
         if(cardData.savedMutations && cardData.savedMutations.length > 0) {
-            upgHtml = `<div style="position:absolute; top:-5px; left:30px; font-size:16px;">✨</div>`;
+            upgHtml = `<div style="position:absolute; top:-5px; left:-5px; font-size:16px;">✨</div>`;
         }
 
         el.innerHTML = `
-            ${incomeHtml}
             ${upgHtml}
             <div class="cost-badge">${info.cost}</div>
             <div class="card-main-icon">${info.icon}</div>
             <div class="card-title">${cardData.type}</div>
-            <div class="card-desc">${info.description}</div>
             <div class="stats-row">
                 <div class="card-stat atk-stat">⚔️${currentAtk}</div>
                 <div class="card-stat hp-stat">❤️${currentHp}</div>
@@ -154,7 +153,6 @@ function createCardElement(cardData, index) {
             <div class="cost-badge" style="background:${color}">${info.cost}</div>
             <div class="card-main-icon">🧬</div>
             <div class="card-title">${info.label}</div>
-            <div class="card-desc">${info.description}</div>
             <div class="stats-row" style="justify-content:center;">DNA</div>`;
         el.classList.add('mutation-card');
     }
@@ -174,7 +172,7 @@ export function populateDetailsPanel() {
     listEl.innerHTML = '';
     const currentLabUnits = state.labUnits[state.activePlayerId] || [];
     let totalAtp = 0;
-    const pipettesCount = state.pipettes[state.activePlayerId];
+    const pipettesCount = (state.pipettes && state.pipettes[state.activePlayerId]) || 0;
 
     if(pipetteCountEl) {
         pipetteCountEl.innerText = `🧪 PIPETY: ${pipettesCount}/9`;
@@ -190,7 +188,6 @@ export function populateDetailsPanel() {
         const unitIncome = (typeInfo?.income || 0) + (u.traits.photosynthesis || 0);
         totalAtp += unitIncome;
 
-        // --- ZMIANA: Zgrabne "Kapsułki" mutacji zamiast zepsutych kart ---
         const mutCardsHtml = u.appliedMutations.map((mCode, mIdx) => {
             const mutInfo = MUTATION_TYPES[mCode] || { label: mCode, icon: '🧬', cost: 0, description: 'Brak danych' };
 
@@ -224,7 +221,6 @@ export function populateDetailsPanel() {
             item.classList.add('drag-over');
         }
 
-        // --- ZMIANA: Czysty układ przycisków za pomocą Grid ---
         item.innerHTML = `
             <div class="detail-main">
                 <div class="detail-icon">${typeInfo.icon}</div>
@@ -245,16 +241,9 @@ export function populateDetailsPanel() {
             </div>
         `;
 
+        // Cross-Highlighting: najechanie w menu zapala aurę na głównym ekranie
         item.addEventListener('mouseenter', () => state.hoveredUnitFromUI = u);
         item.addEventListener('mouseleave', () => state.hoveredUnitFromUI = null);
-
-        item.addEventListener('click', (e) => {
-            if (e.target.closest('.unit-action-btn') || e.target.closest('.clickable-mutation')) return;
-            document.querySelectorAll('.detail-item.expanded').forEach(el => {
-                if(el !== item) el.classList.remove('expanded');
-            });
-            item.classList.toggle('expanded');
-        });
 
         item.querySelector('.extract-btn').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -279,7 +268,7 @@ export function populateDetailsPanel() {
         item.querySelectorAll('.extract-mut-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (state.pipettes[state.activePlayerId] > 0) {
+                if (state.pipettes && state.pipettes[state.activePlayerId] > 0) {
                     const mIdx = parseInt(btn.dataset.midx);
                     const extractedMut = u.appliedMutations.splice(mIdx, 1)[0];
                     state.pipettes[state.activePlayerId]--;
@@ -317,6 +306,7 @@ export function populateDetailsPanel() {
                 const handIndex = state.dragPreview.index;
 
                 if (mutType === 'EXTRA_PIPETTE') {
+                    if(!state.pipettes) state.pipettes = { player: 3, enemy: 3 };
                     state.pipettes[state.activePlayerId] = Math.min(9, state.pipettes[state.activePlayerId] + 3);
                     showDamageNumber(`+3 🧪 PIPETA`, u.x, u.y, '#00cec9');
                 } else {
@@ -383,7 +373,7 @@ function updateTutorialText() {
     if (state.phase.startsWith('LAB_')) {
         title = `🔬 Laboratorium (${state.activePlayerId === 'player' ? state.p1Name : state.p2Name})`;
         borderColor = "#00ffea";
-        content = `<ul><li><b>Kliknij organizm na liście</b>, aby rozwinąć opcje!</li></ul>`;
+        content = `<ul><li><b>Najedź na organizm na liście</b>, aby rozwinąć jego ukryte opcje!</li></ul>`;
     } else if (state.phase.startsWith('PLANNING_')) {
         title = `⏱️ Rozstawianie (${state.activePlayerId === 'player' ? state.p1Name : state.p2Name})`;
         borderColor = state.activePlayerId === 'player' ? "#00cec9" : "#ff7675";
@@ -528,6 +518,7 @@ canvas.addEventListener('drop', (e) => {
     } else if (category === 'mutation') {
         if (targetUnit) {
             if (type === 'EXTRA_PIPETTE') {
+                if(!state.pipettes) state.pipettes = { player: 3, enemy: 3 };
                 state.pipettes[state.activePlayerId] = Math.min(9, state.pipettes[state.activePlayerId] + 3);
                 showDamageNumber(`+3 🧪 PIPETA`, targetUnit.x, targetUnit.y, '#00cec9');
                 if (state.activePlayerId === 'player') state.playerATP -= cost; else state.enemyATP -= cost;
@@ -560,7 +551,7 @@ canvas.addEventListener('drop', (e) => {
     state.dragPreview = null;
 });
 
-function showBioModal(cardData) {
+export function showBioModal(cardData) {
     let overlay = document.getElementById('bio-modal-overlay');
     if (!overlay) {
         overlay = document.createElement('div');
