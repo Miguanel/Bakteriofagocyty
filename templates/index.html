@@ -2,66 +2,116 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>Mikro Arena: Deck Builder</title>
+    <title>Mikro Arena: Cosmic Edition</title>
     <link rel="stylesheet" href="static/css/style.css">
     <script src="https://bernardo-castilho.github.io/DragDropTouch/DragDropTouch.js"></script>
-    <style>
-        /* Styl dla ręki przeciwnika (małe karty u góry) */
-        #enemy-hand-container {
-            position: absolute;
-            top: 10px;
-            right: 20px; /* Po prawej stronie paska wroga */
-            display: flex;
-            gap: 5px;
-        }
-        .mini-card {
-            width: 40px; height: 50px;
-            background: #34495e; border: 1px solid #7f8c8d;
-            border-radius: 4px; display: flex; justify-content: center; align-items: center;
-            font-size: 20px; color: white;
-        }
-    </style>
 </head>
-<body>
-
-    <div id="top-ui">
-        <div class="hp-box">
-            <div class="enemy-atp-badge">
-                <span id="enemy-atp-val" class="enemy-atp-val">10</span>
-                <span class="enemy-atp-lbl">ATP</span>
+<body class="cosmic-theme">
+    <div id="start-modal" class="fullscreen-modal">
+        <div class="modal-content">
+            <h1>🌌 COSMIC MICRO ARENA</h1>
+            <div class="mode-selection">
+                <button id="btn-pve" class="mode-btn">VS AI</button>
+                <button id="btn-pvp" class="mode-btn selected">HOT-SEAT</button>
             </div>
-            <div class="hp-label">ORGANIZM WROGA</div>
-            <div class="hp-bar-bg"><div id="enemy-hp-fill" class="hp-bar-fill"></div></div>
-            <div id="enemy-hp-text" class="hp-text">100 HP</div>
-        </div>
-
-        <div id="enemy-hand-container"></div>
-
-        <div id="phase-indicator">FAZA: PLANOWANIE</div>
-
-        <div class="hp-box">
-            <div class="hp-label">TWÓJ ORGANIZM</div>
-            <div class="hp-bar-bg"><div id="player-hp-fill" class="hp-bar-fill"></div></div>
-            <div id="player-hp-text" class="hp-text">100 HP</div>
+            <div class="player-config">
+                <div class="p-setup" id="p1-setup">
+                    <input type="text" id="p1-name" value="Komandor 1">
+                    <div class="avatar-picker">
+                        <span class="nav" onclick="changeAvatar('p1', -1)">◀</span>
+                        <div id="p1-avatar-display" class="avatar-display">👨‍🚀</div>
+                        <span class="nav" onclick="changeAvatar('p1', 1)">▶</span>
+                    </div>
+                    <input type="color" id="p1-color" value="#00cec9">
+                </div>
+                <div class="p-setup" id="p2-setup">
+                    <input type="text" id="p2-name" value="Obcy">
+                    <div class="avatar-picker">
+                        <span class="nav" onclick="changeAvatar('p2', -1)">◀</span>
+                        <div id="p2-avatar-display" class="avatar-display">👽</div>
+                        <span class="nav" onclick="changeAvatar('p2', 1)">▶</span>
+                    </div>
+                    <input type="color" id="p2-color" value="#ff7675">
+                </div>
+            </div>
+            <button id="start-game-btn" class="big-action-btn">INICJUJ PROTOKÓŁ</button>
         </div>
     </div>
 
-    <div id="game-container">
-        <canvas id="gameCanvas" width="800" height="450"></canvas>
+    <div id="intermission-modal" class="fullscreen-modal" style="display: none;">
+        <div class="modal-content intermission-content">
+            <h2 id="intermission-title">ZMIANA SYGNAŁU</h2>
+            <div id="next-player-avatar" class="large-avatar">👨‍🚀</div>
+            <p id="intermission-text"></p>
+            <button id="intermission-btn" class="big-action-btn">PRZEJMIJ KONSOLĘ</button>
+        </div>
     </div>
 
-    <button id="action-btn">ZAKOŃCZ TURĘ (WALKA)</button>
-
-    <div id="bottom-ui">
-        <div id="atp-container">
-            <div id="atp-icon">⚡</div>
-            <div id="atp-value">10</div>
-            <div id="atp-label">ENERGIA</div>
+    <div id="game-ui" style="display: none;">
+        <div id="top-ui">
+            <div class="hp-box cosmic-glass" id="enemy-box">
+                <div id="enemy-hand-container"></div>
+                <div class="enemy-atp-badge">
+                    <span id="enemy-atp-val">10</span><span>ATP</span>
+                </div>
+                <div id="enemy-name-label" class="hp-label">WRÓG</div>
+                <div class="hp-bar-bg"><div id="enemy-hp-fill" class="hp-bar-fill"></div></div>
+                <div id="enemy-hp-text" class="hp-text">100 HP</div>
+            </div>
+            <div id="phase-indicator" class="cosmic-glass">FAZA: INICJACJA</div>
+            <div class="hp-box cosmic-glass" id="player-box">
+                <div id="player-name-label" class="hp-label">TY</div>
+                <div class="hp-bar-bg"><div id="player-hp-fill" class="hp-bar-fill"></div></div>
+                <div id="player-hp-text" class="hp-text">100 HP</div>
+            </div>
         </div>
 
-        <div id="deck-container"></div>
+        <div id="game-container" style="position: relative;">
+            <canvas id="gameCanvas" width="800" height="450"></canvas>
+
+            <div id="lab-side-buttons" style="display: none;">
+                <button id="btn-details" class="side-btn">📜 ZWIŃ</button>
+            </div>
+
+            <div id="unit-list-panel" class="floating-panel" style="display: flex;">
+                <h3 style="margin: 15px 0 5px 0; text-align: center; color: var(--active-color);">📊 STAN KOLONII</h3>
+                <div style="text-align: center; font-size: 10px; color: #bdc3c7;">Przeciągnij gen na listę</div>
+                <div id="details-list" class="details-list"></div>
+                <div class="details-summary">
+                    SUMA DOCHODU: <br><b id="details-total-atp" style="color:#f1c40f; font-size:24px;">0</b> ⚡ / turę
+                </div>
+            </div>
+
+            <div id="unit-hover-tooltip" class="hover-tooltip" style="display: none;">
+                <div id="tooltip-stats"></div>
+                <button id="tooltip-extract-btn" class="side-btn" style="width: 100%; margin-top: 10px;">📥 POBIERZ</button>
+            </div>
+        </div>
+
+        <div class="ui-controls">
+            <div id="atp-container" class="cosmic-glass">
+                <div id="atp-value">20</div>
+                <div id="atp-label">ENERGIA KWANTOWA</div>
+            </div>
+            <button id="action-btn" class="cosmic-btn">SKOK W NADPRZESTRZEŃ</button>
+        </div>
+
+        <div id="deck-container" class="cosmic-deck"></div>
     </div>
 
     <script type="module" src="static/js/main.js"></script>
+    <script>
+        const avatars = ["👨‍🚀", "👽", "🤖", "👹", "🦠", "🧬", "👑", "🌸"];
+        let p1Idx = 0, p2Idx = 1;
+        window.changeAvatar = (p, dir) => {
+            if(p === 'p1') {
+                p1Idx = (p1Idx + dir + avatars.length) % avatars.length;
+                document.getElementById('p1-avatar-display').innerText = avatars[p1Idx];
+            } else {
+                p2Idx = (p2Idx + dir + avatars.length) % avatars.length;
+                document.getElementById('p2-avatar-display').innerText = avatars[p2Idx];
+            }
+        };
+    </script>
 </body>
 </html>

@@ -39,12 +39,18 @@ export class Unit {
             case 'APOPTOSIS': this.atk += 15; this.traits.kamikaze = true; break;
             case 'CORDYCEPS': this.traits.necromancy = true; break;
             case 'LIPIDS': this.mass *= 3.0; this.maxHp += 20; this.hp += 20; this.baseSpeed *= 0.1; break;
+
+            // --- NOWE HYBRYDY ---
+            case 'SYMBIOSIS': this.maxHp += 15; this.hp += 15; this.traits.photosynthesis += 2; break;
+            case 'PREDATOR_DNA': this.atk += 10; this.baseSpeed *= 1.3; break;
+            case 'SPIKED_ARMOR': this.maxHp += 20; this.hp += 20; this.traits.thorns = true; break;
+            case 'MUTANT_BLOOD': this.traits.regeneration = true; this.atk += 5; break;
         }
     }
 
     draw() {
         drawUnitVisuals(this, 1.0, this.damageCooldown > 0);
-        if (state.phase === PHASES.PLAYER_PLANNING && !this.isDormant && this.baseSpeed > 0) this.drawArrow();
+        if (state.phase.startsWith('PLANNING') && !this.isDormant && this.baseSpeed > 0) this.drawArrow();
     }
 
     drawArrow() { drawVectorArrow(this.x, this.y, Math.atan2(this.vy, this.vx), 1.0); }
@@ -55,7 +61,6 @@ export class Unit {
         }
         if (this.damageCooldown > 0) this.damageCooldown -= deltaTime;
 
-        // --- LOGIKA ŚMIERCI ---
         if (this.hp <= 0 && !this.isDeadFlag) {
             this.hp = 0;
             if (this.type === 'tardigrade' && !this.isDormant) {
@@ -63,16 +68,16 @@ export class Unit {
             } else {
                 this.isDeadFlag = true;
 
-                // WYPADA ENERGIA (tylko poza szalką laboratoryjną)
-                if (state.phase !== 'LAB_MODE') {
+                if (!state.phase.startsWith('LAB_')) {
                     const dropValue = Math.max(1, Math.floor(UNIT_TYPES[this.type].cost / 2));
-                    // Bezpiecznik: jeśli tablica nie istnieje, tworzymy ją
                     if (!state.energyDrops) state.energyDrops = [];
                     state.energyDrops.push(new EnergyDrop(this.x, this.y, dropValue));
                 }
 
                 if (this.traits.necromancy) {
-                    state.units.push(new Unit(this.x, this.y, 'virus', this.owner, Math.random() * Math.PI * 2));
+                    // Wskrzeszamy z wirusem! Zmiana na push do battleUnits lub labUnits
+                    const targetArr = state.phase.startsWith('LAB_') ? state.labUnits[this.owner] : state.battleUnits;
+                    targetArr.push(new Unit(this.x, this.y, 'virus', this.owner, Math.random() * Math.PI * 2));
                 }
             }
         }
@@ -104,30 +109,20 @@ export class Unit {
     }
 }
 
-// --- ZAKTUALIZOWANA, PULSUJĄCA KROPELKA ENERGII ---
 export class EnergyDrop {
     constructor(x, y, amount) {
-        this.x = x;
-        this.y = y;
-        this.amount = amount;
-        this.radius = 10;
+        this.x = x; this.y = y; this.amount = amount; this.radius = 10;
         this.pulse = Math.random() * Math.PI * 2;
-
-        // Efekt wyrzutu
         const angle = Math.random() * Math.PI * 2;
         const speed = Math.random() * 5 + 2;
-        this.vx = Math.cos(angle) * speed;
-        this.vy = Math.sin(angle) * speed;
-
-        this.pickupDelay = 60; // 1 sekunda opóźnienia, by dało się ją zauważyć
+        this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;
+        this.pickupDelay = 60;
     }
 
     draw(ctx) {
         if (this.pickupDelay > 0) {
-            this.x += this.vx;
-            this.y += this.vy;
-            this.vx *= 0.92;
-            this.vy *= 0.92;
+            this.x += this.vx; this.y += this.vy;
+            this.vx *= 0.92; this.vy *= 0.92;
             this.pickupDelay--;
         }
 
@@ -136,13 +131,8 @@ export class EnergyDrop {
         const innerCoreRadius = this.radius + Math.sin(this.pulse) * 2;
 
         ctx.save();
+        if (this.pickupDelay > 0 && this.pickupDelay % 10 < 5) ctx.globalAlpha = 0.5;
 
-        // Delikatne miganie, gdy nie można jeszcze podnieść
-        if (this.pickupDelay > 0 && this.pickupDelay % 10 < 5) {
-            ctx.globalAlpha = 0.5;
-        }
-
-        // Duża, miękka poświata
         ctx.beginPath();
         const gradient = ctx.createRadialGradient(this.x, this.y, this.radius * 0.5, this.x, this.y, Math.max(1, outerHaloRadius));
         gradient.addColorStop(0, 'rgba(255, 241, 118, 0.6)');
@@ -151,25 +141,15 @@ export class EnergyDrop {
         ctx.arc(this.x, this.y, Math.max(1, outerHaloRadius), 0, Math.PI * 2);
         ctx.fill();
 
-        // Jasny, neonowy środek
         ctx.beginPath();
         ctx.arc(this.x, this.y, Math.max(1, innerCoreRadius), 0, Math.PI * 2);
-        ctx.fillStyle = '#fffce6';
-        ctx.shadowColor = '#ffea00';
-        ctx.shadowBlur = 25;
+        ctx.fillStyle = '#fffce6'; ctx.shadowColor = '#ffea00'; ctx.shadowBlur = 25;
         ctx.fill();
 
-        // Wyraźny symbol
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.fillStyle = '#d35400';
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.shadowBlur = 0; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#d35400'; ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText('⚡', this.x, this.y + 1);
-
         ctx.restore();
     }
 }

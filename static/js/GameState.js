@@ -1,38 +1,72 @@
-export const state = {
-    phase: 'LAB_MODE', turnTimer: 0, isRunning: true, playerATP: 20, enemyATP: 10,
-    playerHP: 100, enemyHP: 100, playerIncome: 0, storedLabUnits: [], units: [],
-    playerDeck: [], playerHand: [], playerDiscard: [], enemyDeck: [], enemyHand: [],
-    selectedUnit: null, dragPreview: null, nextSpawnAngle: 0, isAiProcessing: false,
-    isLabPaused: false, isExtractMode: false,
+import { UNIT_TYPES, MUTATION_TYPES } from './constants.js';
 
-    // --- NOWOŚĆ: Przechowuje upuszczoną energię ---
+export const state = {
+    gameMode: 'pvp', p1Name: 'Niebieski', p2Name: 'Czerwony', activePlayerId: 'player',
+    phase: 'START_SCREEN', turnTimer: 0,
+    playerATP: 25, enemyATP: 25,
+    playerHP: 100, enemyHP: 100,
+    playerIncome: 0, enemyIncome: 0,
+    labUnits: { player: [], enemy: [] },
+    battleUnits: [],
+    decks: { player: [], enemy: [] },
+    hands: { player: [], enemy: [] },
+    discards: { player: [], enemy: [] },
+    selectedUnit: null, dragPreview: null, nextSpawnAngle: 0,
     energyDrops: []
 };
 
-export function randomizePlayerAngle() { state.nextSpawnAngle = Math.PI + (Math.random() - 0.5); }
+export function randomizePlayerAngle() {
+    state.nextSpawnAngle = state.activePlayerId === 'player' ? (Math.PI + (Math.random() - 0.5)) : ((Math.random() - 0.5));
+}
+
+function generateProceduralCombo() {
+    const allMutations = Object.keys(MUTATION_TYPES);
+    const numMutations = Math.floor(Math.random() * 2) + 1;
+    const combo = [];
+    for(let i=0; i<numMutations; i++) {
+        combo.push(allMutations[Math.floor(Math.random() * allMutations.length)]);
+    }
+    return combo;
+}
 
 export function initializeDecks() {
-    state.playerDeck = [];
-    state.enemyDeck = [];
+    ['player', 'enemy'].forEach(owner => {
+        state.hands[owner] = [];
+        state.decks[owner] = [];
+        state.discards[owner] = [];
 
-    ['virus', 'virus', 'virus', 'bacteria', 'bacteria', 'tardigrade', 'macrophage', 'spore', 'paramecium',
-     'amoeba', 'bacteriophage', 'bacteriophage', 'erythrocyte', 'erythrocyte'].forEach(type => {
-        state.playerDeck.push({ category: 'unit', type: type });
-    });
+        // Dodaliśmy 2x 'flower' do startowej talii!
+        const baseUnits = ['virus', 'bacteria', 'tardigrade', 'macrophage', 'spore', 'paramecium', 'amoeba', 'bacteriophage', 'erythrocyte', 'flower', 'flower'];
 
-    ['TANK_DNA', 'REGEN_ENZYMES', 'CELL_WALL', 'TOXIN_PLASMID', 'FLAGELLA', 'MITOSIS',
-     'CHLOROPLASTS', 'CHLOROPLASTS', 'APOPTOSIS', 'CORDYCEPS', 'LIPIDS'].forEach(type => {
-        state.playerDeck.push({ category: 'mutation', type: type });
-    });
+        // JEDNOSTKI: Każdy dostaje komplet na start
+        baseUnits.forEach(type => {
+            state.hands[owner].push({ category: 'unit', type: type, savedMutations: [] });
+        });
 
-    state.playerDeck.sort(() => Math.random() - 0.5);
+        // TALIA MUTACJI
+        Object.keys(MUTATION_TYPES).forEach(m => {
+            state.decks[owner].push({ category: 'mutation', type: m });
+            state.decks[owner].push({ category: 'mutation', type: m });
+        });
 
-    ['virus', 'virus', 'virus', 'macrophage', 'paramecium', 'amoeba', 'bacteriophage'].forEach(type => {
-        state.enemyDeck.push({ category: 'unit', type: type });
+        for(let i=0; i<10; i++) {
+            state.decks[owner].push({
+                category: 'mutation',
+                type: Object.keys(MUTATION_TYPES)[Math.floor(Math.random() * Object.keys(MUTATION_TYPES).length)],
+                isCombo: true,
+                extraMutations: generateProceduralCombo()
+            });
+        }
+        state.decks[owner].sort(() => Math.random() - 0.5);
     });
 }
 
-export function drawCard(who) {
-    if (who === 'player' && state.playerDeck.length > 0) state.playerHand.push(state.playerDeck.pop());
-    else if (who === 'enemy' && state.enemyDeck.length > 0) state.enemyHand.push(state.enemyDeck.pop());
+export function drawMutations(who, amount = 1) {
+    for(let i=0; i<amount; i++){
+        if (state.decks[who].length > 0) {
+            state.hands[who].push(state.decks[who].pop());
+        }
+    }
 }
+
+export const drawCard = drawMutations;

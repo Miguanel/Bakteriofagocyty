@@ -29,8 +29,6 @@ export const UNIT_TYPES = {
         icon: '🥏', color: '#2980b9', income: 2,
         description: "Zwinny pływak. Bardzo szybki, ale niezwykle kruchy."
     },
-
-    // --- NOWE JEDNOSTKI ---
     'amoeba': {
         cost: 6, radius: 45, mass: 12.0, baseSpeed: 1.0, atk: 7, hp: 40,
         icon: '🦠', color: '#9b59b6', income: 3,
@@ -45,6 +43,12 @@ export const UNIT_TYPES = {
         cost: 2, radius: 25, mass: 3.0, baseSpeed: 3.0, atk: 0, hp: 35,
         icon: '🔴', color: '#e74c3c', income: 1,
         description: "Tania żywa tarcza. Nie potrafi atakować."
+    },
+    // --- NOWA JEDNOSTKA: KWIAT ---
+    'flower': {
+        cost: 3, radius: 26, mass: 15.0, baseSpeed: 0, atk: 0, hp: 15,
+        icon: '🌸', color: '#ff9ff3', income: 5,
+        description: "Kosmiczna Flora. Nieruchomy i bezbronny, ale generuje dużo ATP."
     }
 };
 
@@ -55,13 +59,15 @@ export const MUTATION_TYPES = {
     'CELL_WALL': { cost: 4, label: "Ściana Kom.", icon: "🧱", description: "Twarda powłoka zadająca rany atakującym wrogom." },
     'TOXIN_PLASMID': { cost: 3, label: "Toksyna", icon: "☠️", description: "Zwiększa siłę ataku kosztem punktów życia." },
     'FLAGELLA': { cost: 2, label: "Wici", icon: "〰️", description: "Poprawia zwrotność i przyspieszenie komórki." },
-    'MITOSIS': { cost: 8, label: "Mitoza", icon: "➗", description: "Tworzy identycznego klona wraz z jego mutacjami!" },
-
-    // --- NOWE MUTACJE ---
+    'MITOSIS': { cost: 8, label: "Mitoza", icon: "➗", description: "Tworzy identycznego klona wraz z mutacjami!" },
     'CHLOROPLASTS': { cost: 3, label: "Chloroplasty", icon: "🌿", description: "Fotosynteza: Generuje dodatkowe +3 ATP na szalce." },
     'APOPTOSIS': { cost: 4, label: "Apoptoza", icon: "💥", description: "+15 ATK. Jednostka wybucha (ginie) podczas ataku." },
-    'CORDYCEPS': { cost: 6, label: "Cordyceps", icon: "🧟", description: "Gdy jednostka ginie, wskrzesza się z niej darmowy Wirus." },
-    'LIPIDS': { cost: 2, label: "Lipidy", icon: "🟡", description: "+20 HP i gigantyczna masa, ale zatrzymuje ruch." }
+    'CORDYCEPS': { cost: 6, label: "Cordyceps", icon: "🧟", description: "Gdy jednostka ginie, wskrzesza się z niej Wirus." },
+    'LIPIDS': { cost: 2, label: "Lipidy", icon: "🟡", description: "+20 HP i masa, ale zatrzymuje ruch." },
+    'SYMBIOSIS': { cost: 5, label: "Symbioza", icon: "🤝", description: "+15 HP i produkuje +2 ATP co turę." },
+    'PREDATOR_DNA': { cost: 6, label: "Drapieżnik", icon: "🐅", description: "+10 ATK i +30% Szybkości." },
+    'SPIKED_ARMOR': { cost: 6, label: "Kolczuga", icon: "🦔", description: "+20 HP i zadaje obrażenia dotykowe." },
+    'MUTANT_BLOOD': { cost: 7, label: "Krew Mutanta", icon: "🧪", description: "Zapewnia Regenerację oraz +5 ATK." }
 };
 
 export const TURN_DURATION = 3000;

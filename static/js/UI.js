@@ -13,13 +13,14 @@ function createDeckPreview() {
 }
 const deckCountLabel = document.getElementById('deck-count');
 const deckList = document.getElementById('deck-list');
-
 const deckContainer = document.getElementById('deck-container');
-// --- TWORZENIE PANELU PORADNIKA ---
-const tutorialPanel = document.createElement('div');
-tutorialPanel.id = 'tutorial-panel';
-gameContainer.appendChild(tutorialPanel);
 
+const tutorialPanel = document.getElementById('tutorial-panel') || (function() {
+    const tp = document.createElement('div');
+    tp.id = 'tutorial-panel';
+    gameContainer.appendChild(tp);
+    return tp;
+})();
 
 deckContainer.addEventListener('wheel', (e) => {
     if (deckContainer.scrollWidth > deckContainer.clientWidth) {
@@ -40,8 +41,8 @@ const enemyHpFill = document.getElementById('enemy-hp-fill');
 
 export function renderHands() {
     deckContainer.innerHTML = '';
-
-    const indexedHand = state.playerHand.map((card, index) => ({ ...card, originalIndex: index }));
+    const activeHand = state.hands[state.activePlayerId] || [];
+    const indexedHand = activeHand.map((card, index) => ({ ...card, originalIndex: index }));
 
     const units = indexedHand.filter(c => c.category === 'unit');
     const mutations = indexedHand.filter(c => c.category === 'mutation');
@@ -58,7 +59,6 @@ export function renderHands() {
 
     const renderSection = (title, icon, cards, glowClass) => {
         if (cards.length === 0) return;
-
         const header = document.createElement('div');
         header.className = `deck-section-header ${glowClass}`;
         header.innerHTML = `<span>${icon}</span>${title}`;
@@ -73,14 +73,18 @@ export function renderHands() {
     renderSection('JEDNOSTKI', '🧫', units, 'section-units');
     renderSection('MUTACJE', '🧬', mutations, 'section-mutations');
 
-    enemyHandContainer.innerHTML = '';
-    state.enemyHand.forEach(cardData => {
-        const miniCard = document.createElement('div');
-        miniCard.className = 'mini-card';
-        let icon = (cardData.category === 'unit') ? UNIT_TYPES[cardData.type].icon : '🧬';
-        miniCard.innerText = icon;
-        enemyHandContainer.appendChild(miniCard);
-    });
+    if (enemyHandContainer) {
+        enemyHandContainer.innerHTML = '';
+        if (state.gameMode === 'pve' && state.activePlayerId === 'player') {
+            const opHand = state.hands['enemy'] || [];
+            opHand.forEach(() => {
+                const miniCard = document.createElement('div');
+                miniCard.className = 'mini-card';
+                miniCard.innerText = '🧬';
+                enemyHandContainer.appendChild(miniCard);
+            });
+        }
+    }
 
     renderDeckPreview();
     initDragAndDrop();
@@ -88,9 +92,10 @@ export function renderHands() {
 }
 
 export function renderDeckPreview() {
-    deckCountLabel.innerText = `TALIA: ${state.playerDeck.length}`;
+    const activeDeck = state.decks[state.activePlayerId] || [];
+    deckCountLabel.innerText = `TALIA: ${activeDeck.length}`;
     deckList.innerHTML = '';
-    state.playerDeck.forEach(cardData => {
+    activeDeck.forEach(cardData => {
         const el = document.createElement('div');
         el.className = 'mini-deck-card';
         let icon = '?';
@@ -119,22 +124,21 @@ function createCardElement(cardData, index) {
     let info = {};
     if (cardData.category === 'unit') {
         info = UNIT_TYPES[cardData.type];
-
         let currentHp = info.hp;
         let currentAtk = info.atk;
-
         let totalIncome = info.income || 0;
 
         if (cardData.savedMutations && cardData.savedMutations.length > 0) {
             cardData.savedMutations.forEach(mutCode => {
-                if (mutCode === 'TANK_DNA') currentHp = currentHp * 1.5;
-                else if (mutCode === 'TOXIN_PLASMID') {
-                    currentAtk += 5;
-                    currentHp = currentHp * 0.7;
-                }
+                if (mutCode === 'TANK_DNA') currentHp *= 1.5;
+                else if (mutCode === 'TOXIN_PLASMID') { currentAtk += 5; currentHp *= 0.7; }
                 else if (mutCode === 'APOPTOSIS') currentAtk += 15;
                 else if (mutCode === 'LIPIDS') currentHp += 20;
                 else if (mutCode === 'CHLOROPLASTS') totalIncome += 3;
+                else if (mutCode === 'SYMBIOSIS') { currentHp += 15; totalIncome += 2; }
+                else if (mutCode === 'PREDATOR_DNA') { currentAtk += 10; }
+                else if (mutCode === 'SPIKED_ARMOR') { currentHp += 20; }
+                else if (mutCode === 'MUTANT_BLOOD') { currentAtk += 5; }
             });
             el.classList.add('upgraded-card');
         }
@@ -158,9 +162,8 @@ function createCardElement(cardData, index) {
         }
 
         let incomeHtml = '';
-        // NOWOŚĆ: Zawsze pokazujemy dochód, jeśli istnieje (niezależnie od trybu)
         if (totalIncome > 0) {
-            incomeHtml = `<div class="income-badge" style="background:#f1c40f; color:#2c3e50; font-weight:bold;" title="Dochód ATP co turę">+${totalIncome} ⚡</div>`;
+            incomeHtml = `<div class="income-badge" style="background:#f1c40f; color:#2c3e50; font-weight:bold;" title="Dochód ATP">+${totalIncome}⚡</div>`;
         }
 
         el.innerHTML = `
@@ -176,7 +179,6 @@ function createCardElement(cardData, index) {
             </div>`;
     } else {
         info = MUTATION_TYPES[cardData.type];
-
         let color = '#27ae60';
         if (cardData.type === 'TANK_DNA') color = '#8e44ad';
         else if (cardData.type === 'TOXIN_PLASMID' || cardData.type === 'APOPTOSIS') color = '#c0392b';
@@ -184,6 +186,10 @@ function createCardElement(cardData, index) {
         else if (cardData.type === 'CELL_WALL') color = '#e67e22';
         else if (cardData.type === 'FLAGELLA') color = '#3498db';
         else if (cardData.type === 'LIPIDS') color = '#f1c40f';
+        else if (cardData.type === 'SYMBIOSIS') color = '#1abc9c';
+        else if (cardData.type === 'PREDATOR_DNA') color = '#d35400';
+        else if (cardData.type === 'SPIKED_ARMOR') color = '#7f8c8d';
+        else if (cardData.type === 'MUTANT_BLOOD') color = '#e84393';
 
         el.innerHTML = `
             <div class="cost-badge" style="background:${color}">${info.cost}</div>
@@ -199,32 +205,102 @@ function createCardElement(cardData, index) {
     return el;
 }
 
-export function updateUI() {
-    if (state.phase === 'LAB_MODE') {
-        const currentLabIncome = state.units.reduce((sum, u) => {
-            const typeInfo = UNIT_TYPES[u.type];
-            return sum + (typeInfo && typeInfo.income ? typeInfo.income : 0) + (u.traits.photosynthesis || 0);
-        }, 0);
-        atpValueLabel.innerHTML = `${state.playerATP} <span style="font-size:12px; color:#2ecc71; margin-left:5px;">(+${currentLabIncome} z szalki)</span>`;
+export function populateDetailsPanel() {
+    const listEl = document.getElementById('details-list');
+    const totalAtpEl = document.getElementById('details-total-atp');
+    if (!listEl || !totalAtpEl) return;
+
+    listEl.innerHTML = '';
+    const currentLabUnits = state.labUnits[state.activePlayerId] || [];
+    let totalAtp = 0;
+
+    if (currentLabUnits.length === 0) {
+        listEl.innerHTML = '<p style="color:#7f8c8d; padding: 20px; font-style:italic; text-align:center;">Brak organizmów na szalce.</p>';
     }
-    else {
-        // NOWOŚĆ: Dynamicznie liczymy dochód jednostek, które są teraz na arenie bitwy!
-        const battleIncome = state.units.reduce((sum, u) => {
-            if (u.owner === 'player' && !u.isDormant) {
-                return sum + (UNIT_TYPES[u.type].income || 0) + (u.traits.photosynthesis || 0);
+
+    currentLabUnits.forEach((u, idx) => {
+        const typeInfo = UNIT_TYPES[u.type];
+        const unitIncome = (typeInfo?.income || 0) + (u.traits.photosynthesis || 0);
+        totalAtp += unitIncome;
+
+        const mutNames = u.appliedMutations.length > 0
+            ? u.appliedMutations.map(m => MUTATION_TYPES[m] ? MUTATION_TYPES[m].label : m).join(', ')
+            : 'Brak genów';
+
+        const item = document.createElement('div');
+        item.className = 'detail-item';
+
+        item.innerHTML = `
+            <div class="detail-icon">${typeInfo.icon}</div>
+            <div class="detail-info">
+                <div class="detail-name" style="color: ${typeInfo.color}">${u.type}</div>
+                <div class="detail-mutations">🧬 ${mutNames}</div>
+                <div class="detail-stats">
+                    <span style="color:#ff7675">⚔️ ${u.atk}</span>
+                    <span style="color:#55efc4">❤️ ${Math.ceil(u.hp)}/${Math.ceil(u.maxHp)}</span>
+                </div>
+            </div>
+            <div class="detail-atp">+${unitIncome} ⚡</div>
+        `;
+
+        // DRAG & DROP NA PRAWY PANEL!
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (state.dragPreview && state.dragPreview.category === 'mutation') {
+                item.classList.add('drag-over');
             }
+        });
+
+        item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+
+        item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            item.classList.remove('drag-over');
+
+            if (state.dragPreview && state.dragPreview.category === 'mutation') {
+                const mutType = state.dragPreview.type;
+                const handIndex = state.dragPreview.index;
+
+                u.applyGeneticCard(mutType); // Aplikacja na ten konkretny organizm
+                showDamageNumber(`${mutType}`, u.x, u.y, '#00ff00');
+
+                state.hands[state.activePlayerId].splice(handIndex, 1);
+                state.dragPreview = null;
+
+                renderHands();
+                updateUI();
+            }
+        });
+
+        listEl.appendChild(item);
+    });
+
+    totalAtpEl.innerText = totalAtp;
+}
+
+export function updateUI() {
+    const isLab = state.phase.startsWith('LAB_');
+    const currentATP = state.activePlayerId === 'player' ? state.playerATP : state.enemyATP;
+
+    if (isLab) {
+        const currentLabUnits = state.labUnits[state.activePlayerId] || [];
+        const currentLabIncome = currentLabUnits.reduce((sum, u) => sum + (UNIT_TYPES[u.type]?.income || 0) + (u.traits.photosynthesis || 0), 0);
+        atpValueLabel.innerHTML = `${currentATP} <span style="font-size:12px; color:#2ecc71; margin-left:5px;">(+${currentLabIncome} z szalki)</span>`;
+        deckPreviewContainer.style.display = 'none';
+    } else {
+        const battleIncome = state.battleUnits.reduce((sum, u) => {
+            if (u.owner === state.activePlayerId && !u.isDormant) return sum + (UNIT_TYPES[u.type].income || 0) + (u.traits.photosynthesis || 0);
             return sum;
         }, 0);
 
-        const totalIncome = 5 + (state.playerIncome || 0) + battleIncome;
-        atpValueLabel.innerHTML = `${state.playerATP} <span style="font-size:14px; color:#2ecc71; font-weight:bold;">(+${totalIncome})</span>`;
-    }
-    if (state.phase === 'LAB_MODE') {
-        deckPreviewContainer.style.display = 'none';
-    } else {
+        const baseIncome = state.activePlayerId === 'player' ? state.playerIncome : state.enemyIncome;
+        const totalIncome = 5 + (baseIncome || 0) + battleIncome;
+
+        atpValueLabel.innerHTML = `${currentATP} <span style="font-size:14px; color:#2ecc71; font-weight:bold;">(+${totalIncome})</span>`;
         deckPreviewContainer.style.display = 'flex';
         renderDeckPreview();
     }
+
     enemyAtpLabel.innerText = state.enemyATP;
     playerHpText.innerText = Math.max(0, Math.ceil(state.playerHP)) + " HP";
     enemyHpText.innerText = Math.max(0, Math.ceil(state.enemyHP)) + " HP";
@@ -234,104 +310,49 @@ export function updateUI() {
     enemyHpFill.style.width = enemyPct + "%";
 
     updateCardAvailability();
-
-    if (state.phase === 'LAB_MODE') {
-        deckPreviewContainer.style.display = 'none';
-    } else {
-        deckPreviewContainer.style.display = 'flex';
-        renderDeckPreview();
-    }
     updateTutorialText();
+    populateDetailsPanel(); // Oświeżamy prawy panel z listą
 }
-// Funkcja pomocnicza zmieniająca treść w zależności od fazy
-function updateTutorialText() {
-    let title = "";
-    let content = "";
-    let borderColor = "#3498db"; // Domyślny niebieski
 
-    switch (state.phase) {
-        case 'LAB_MODE':
-            title = "🔬 Laboratorium";
-            borderColor = "#00ffea";
-            content = `
-                <ul>
-                    <li><b>Przeciągaj jednostki</b> z talii na szalkę.</li>
-                    <li><b>Ulepszaj je</b> upuszczając na nie geny (mutacje).</li>
-                    <li>Przeciągnij istotę w dół (lub użyj 'Pobierz'), by zapisać ją do talii.</li>
-                </ul>
-                <div style="margin-top:10px; font-size:11px; color:#bdc3c7;">
-                    Zbuduj armię i kliknij "Przejdź do walki".
-                </div>
-            `;
-            break;
-        case 'PLAYER_PLANNING':
-            title = "⏱️ Faza Planowania";
-            borderColor = "#f1c40f";
-            content = `
-                <ul>
-                    <li>Upuszczaj jednostki na arenę. Kosztują one <b>ATP</b>.</li>
-                    <li>Kierunek strzałki wskazuje, gdzie polecą.</li>
-                    <li>Wybieraj mądrze – Twoje zasoby są ograniczone!</li>
-                </ul>
-                <div style="margin-top:10px; font-size:11px; color:#bdc3c7;">
-                    Gdy skończysz, kliknij "Rozpocznij Atak".
-                </div>
-            `;
-            break;
-        case 'PLAYER_COMBAT':
-            title = "⚔️ Twój Atak!";
-            borderColor = "#2ecc71";
-            content = `
-                <ul>
-                    <li>Jednostki walczą i zadają sobie obrażenia przy zderzeniu!</li>
-                    <li>Zbieraj upuszczoną, złotą energię ⚡, by zyskać dodatkowe ATP.</li>
-                </ul>
-            `;
-            break;
-        case 'ENEMY_PLANNING':
-            title = "🛡️ Ruch Wroga";
-            borderColor = "#e74c3c";
-            content = `
-                <p>Przeciwnik analizuje sytuację na planszy i kupuje swoje jednostki...</p>
-                <div style="text-align:center; font-size:20px; margin-top:10px;">⏳</div>
-            `;
-            break;
-        case 'ENEMY_COMBAT':
-            title = "🔴 Obrona!";
-            borderColor = "#ff0055";
-            content = `
-                <ul>
-                    <li>Utrzymaj pozycję! Wróg kontratakuje.</li>
-                    <li>Każda jednostka, która przetrwa, doliczy Ci ATP w następnej turze.</li>
-                </ul>
-            `;
-            break;
+function updateTutorialText() {
+    let title = ""; let content = ""; let borderColor = "#3498db";
+
+    if (state.phase.startsWith('LAB_')) {
+        title = `🔬 Laboratorium (${state.activePlayerId === 'player' ? state.p1Name : state.p2Name})`;
+        borderColor = "#00ffea";
+        content = `<ul><li><b>Przeciągaj geny</b> na mikrob w szalce lub na liście po prawej!</li></ul>`;
+    } else if (state.phase.startsWith('PLANNING_')) {
+        title = `⏱️ Rozstawianie (${state.activePlayerId === 'player' ? state.p1Name : state.p2Name})`;
+        borderColor = state.activePlayerId === 'player' ? "#00cec9" : "#ff7675";
+        content = `<ul><li>Koszt wystawienia to <b>ATP</b>.</li></ul>`;
+    } else if (state.phase === 'COMBAT') {
+        title = "⚔️ Walka!";
+        borderColor = "#f1c40f";
+        content = `<ul><li>Walka aż do upadku jednej z armii!</li></ul>`;
     }
 
-    // Zmieniamy kolor paska z boku i tytułu
     tutorialPanel.style.borderRightColor = borderColor;
-
     if(window.innerWidth <= 1050) {
         tutorialPanel.style.borderTopColor = borderColor;
-        tutorialPanel.style.borderRightColor = 'transparent'; // Resetujemy prawy na mobilkach
+        tutorialPanel.style.borderRightColor = 'transparent';
     }
-
     tutorialPanel.innerHTML = `<h3 style="color: ${borderColor}">${title}</h3>${content}`;
 }
+
 function updateCardAvailability() {
+    const currentATP = state.activePlayerId === 'player' ? state.playerATP : state.enemyATP;
     const cards = document.querySelectorAll('.card');
     cards.forEach(card => {
-        if (state.phase === 'LAB_MODE') {
-            card.classList.remove('disabled'); return;
-        }
-        const index = card.dataset.handIndex;
-        if (!state.playerHand[index]) return;
-        const cardData = state.playerHand[index];
-        let cost = 0;
-        if (cardData.category === 'unit') cost = UNIT_TYPES[cardData.type].cost;
-        else if (cardData.category === 'mutation') cost = MUTATION_TYPES[cardData.type].cost;
+        if (state.phase.startsWith('LAB_')) { card.classList.remove('disabled'); return; }
 
-        if (cost > state.playerATP) card.classList.add('disabled');
+        const index = card.dataset.handIndex;
+        const activeHand = state.hands[state.activePlayerId];
+        if (!activeHand || !activeHand[index]) return;
+
+        const cardData = activeHand[index];
+        let cost = cardData.category === 'unit' ? UNIT_TYPES[cardData.type].cost : MUTATION_TYPES[cardData.type].cost;
+
+        if (cost > currentATP) card.classList.add('disabled');
         else card.classList.remove('disabled');
     });
 }
@@ -341,18 +362,13 @@ export function showDamageNumber(value, x, y, color) {
     el.className = 'damage-float';
     el.innerText = typeof value === 'number' ? "-" + value : value;
     if (x === null || x === undefined) {
-        el.style.left = '80px';
-        el.style.top = '50px';
+        el.style.left = '80px'; el.style.top = '50px';
     } else {
         el.style.left = (x + gameContainer.offsetLeft) + 'px';
         el.style.top = (y + gameContainer.offsetTop) + 'px';
     }
-    el.style.color = color;
-    el.style.fontWeight = 'bold';
-    el.style.fontSize = '24px';
-    el.style.textShadow = '0 1px 3px black';
-    el.style.zIndex = 1000;
-
+    el.style.color = color; el.style.fontWeight = 'bold'; el.style.fontSize = '24px';
+    el.style.textShadow = '0 1px 3px black'; el.style.zIndex = 1000;
     gameContainer.appendChild(el);
     setTimeout(() => el.remove(), 1500);
 }
@@ -361,35 +377,37 @@ export function initDragAndDrop() {
     const cards = document.querySelectorAll('.card');
     cards.forEach(card => {
         card.addEventListener('dragstart', (e) => {
-            if (state.phase !== 'LAB_MODE' && state.phase !== 'PLAYER_PLANNING') { e.preventDefault(); return; }
+            if (state.phase === 'COMBAT' || state.phase === 'PLANNING_AI') { e.preventDefault(); return; }
             const index = card.dataset.handIndex;
-            const cardData = state.playerHand[index];
-            if (!cardData) { e.preventDefault(); return; }
+            const activeHand = state.hands[state.activePlayerId];
+            if (!activeHand || !activeHand[index]) { e.preventDefault(); return; }
+
+            const cardData = activeHand[index];
             const category = cardData.category;
             const type = cardData.type;
             const savedMutations = cardData.savedMutations || [];
-            let cost = 0;
-            if (category === 'unit') cost = UNIT_TYPES[type].cost;
-            else if (category === 'mutation') cost = MUTATION_TYPES[type].cost;
-            if (state.phase === 'LAB_MODE') cost = 0;
-            else if (state.playerATP < cost) { e.preventDefault(); return; }
-            if (card.classList.contains('disabled') && state.phase !== 'LAB_MODE') { e.preventDefault(); return; }
+
+            let cost = category === 'unit' ? UNIT_TYPES[type].cost : MUTATION_TYPES[type].cost;
+            if (state.phase.startsWith('LAB_')) cost = 0;
+
+            const currentATP = state.activePlayerId === 'player' ? state.playerATP : state.enemyATP;
+            if (currentATP < cost) { e.preventDefault(); return; }
+            if (card.classList.contains('disabled') && !state.phase.startsWith('LAB_')) { e.preventDefault(); return; }
+
             card.classList.add('dragging');
             state.dragPreview = { category, type, cost, index, savedMutations, x: 0, y: 0, validTarget: false };
             const emptyImg = new Image();
             emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
             e.dataTransfer.setDragImage(emptyImg, 0, 0);
         });
-        card.addEventListener('dragend', () => {
-            card.classList.remove('dragging');
-            state.dragPreview = null;
-        });
+        card.addEventListener('dragend', () => { card.classList.remove('dragging'); state.dragPreview = null; });
     });
 }
 
 function findUnitAt(mx, my) {
-    for (let i = state.units.length - 1; i >= 0; i--) {
-        const u = state.units[i];
+    const currentUnits = state.phase.startsWith('LAB_') ? state.labUnits[state.activePlayerId] : state.battleUnits;
+    for (let i = currentUnits.length - 1; i >= 0; i--) {
+        const u = currentUnits[i];
         if (Math.sqrt((u.x-mx)**2 + (u.y-my)**2) <= u.radius + 10) return u;
     }
     return null;
@@ -398,19 +416,16 @@ function findUnitAt(mx, my) {
 canvas.addEventListener('dragover', (e) => {
     e.preventDefault();
     if (!state.dragPreview) return;
-
     const rect = canvas.getBoundingClientRect();
-    // NOWOŚĆ: Obliczamy rzeczywistą skalę płótna
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
-    // Mnożymy pozycję myszy przez skalę
     state.dragPreview.x = (e.clientX - rect.left) * scaleX;
     state.dragPreview.y = (e.clientY - rect.top) * scaleY;
 
     if (state.dragPreview.category === 'mutation') {
         const target = findUnitAt(state.dragPreview.x, state.dragPreview.y);
-        if (target && target.owner === 'player') {
+        if (target && target.owner === state.activePlayerId) {
             state.dragPreview.validTarget = true;
             state.dragPreview.targetUnit = target;
         } else {
@@ -429,32 +444,30 @@ canvas.addEventListener('drop', (e) => {
     if (!validTarget) return;
 
     let success = false;
+    const currentUnits = state.phase.startsWith('LAB_') ? state.labUnits[state.activePlayerId] : state.battleUnits;
 
     if (category === 'unit') {
         if (UNIT_TYPES[type]) {
-            const newUnit = new Unit(x, y, type, 'player', state.nextSpawnAngle);
+            const newUnit = new Unit(x, y, type, state.activePlayerId, state.nextSpawnAngle);
             if (savedMutations && savedMutations.length > 0) {
                 savedMutations.forEach(mCode => newUnit.applyGeneticCard(mCode));
             }
-            state.units.push(newUnit);
-            state.playerATP -= cost;
+            currentUnits.push(newUnit);
+            if (state.activePlayerId === 'player') state.playerATP -= cost; else state.enemyATP -= cost;
             success = true;
         }
     } else if (category === 'mutation') {
         if (targetUnit) {
             if (type === 'MITOSIS') {
-                const clone = new Unit(targetUnit.x + targetUnit.radius + 10, targetUnit.y, targetUnit.type, 'player', state.nextSpawnAngle);
-                if (targetUnit.appliedMutations) {
-                    targetUnit.appliedMutations.forEach(mCode => clone.applyGeneticCard(mCode));
-                }
-                state.units.push(clone);
-                state.playerATP -= cost;
+                const clone = new Unit(targetUnit.x + targetUnit.radius + 10, targetUnit.y, targetUnit.type, state.activePlayerId, state.nextSpawnAngle);
+                if (targetUnit.appliedMutations) { targetUnit.appliedMutations.forEach(mCode => clone.applyGeneticCard(mCode)); }
+                currentUnits.push(clone);
+                if (state.activePlayerId === 'player') state.playerATP -= cost; else state.enemyATP -= cost;
                 showDamageNumber(`➗ KLON!`, targetUnit.x, targetUnit.y - 20, '#9b59b6');
                 success = true;
-            }
-            else {
+            } else {
                 targetUnit.applyGeneticCard(type);
-                state.playerATP -= cost;
+                if (state.activePlayerId === 'player') state.playerATP -= cost; else state.enemyATP -= cost;
                 showDamageNumber(`${type}`, targetUnit.x, targetUnit.y, '#00ff00');
                 success = true;
             }
@@ -462,13 +475,11 @@ canvas.addEventListener('drop', (e) => {
     }
 
     if (success) {
-        const playedCard = state.playerHand.splice(index, 1)[0];
-
-        if (state.phase !== 'LAB_MODE') {
-            if (!state.playerDiscard) state.playerDiscard = [];
-            state.playerDiscard.push(playedCard);
+        const playedCard = state.hands[state.activePlayerId].splice(index, 1)[0];
+        if (!state.phase.startsWith('LAB_')) {
+            if (!state.discards[state.activePlayerId]) state.discards[state.activePlayerId] = [];
+            state.discards[state.activePlayerId].push(playedCard);
         }
-
         renderHands();
         updateUI();
     }

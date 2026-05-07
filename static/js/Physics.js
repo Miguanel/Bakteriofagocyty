@@ -3,6 +3,8 @@ import { canvas } from './Canvas.js';
 
 export function resolveCollisions() {
     const units = state.units;
+    // BEZPIECZNIK: Jeśli units nie istnieje, wyjdź z funkcji
+    if (!units || !Array.isArray(units)) return;
     for (let i = 0; i < units.length; i++) {
         for (let j = i + 1; j < units.length; j++) {
             const u1 = units[i];

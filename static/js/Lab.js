@@ -2,9 +2,11 @@ import { state } from './GameState.js';
 import { canvas, ctx } from './Canvas.js';
 import { resolveCollisions, resolveCircularBounds } from './Physics.js';
 import { renderHands, updateUI } from './UI.js';
+import { UNIT_TYPES, MUTATION_TYPES } from './constants.js';
 
 let heldUnit = null;
-let mousePos = { x: 0, y: 0 };
+let hoveredUnit = null; // Śledzi aktualnie "zamrożoną" jednostkę
+let mousePos = { x: -1000, y: -1000 };
 
 export function drawPetriDish() {
     const cx = canvas.width / 2;
@@ -33,43 +35,42 @@ export function labLoop(deltaTime) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawPetriDish();
 
-    // 1. Fizyka działa tylko gdy nic nie trzymamy i gra nie jest zapauzowana
-    if (!state.dragPreview && !heldUnit && !state.isLabPaused) {
+    const currentLabUnits = state.labUnits[state.activePlayerId] || [];
+
+    // Jeśli kursor jest nad jakąkolwiek jednostką, cała szalka pauzuje!
+    const isPausedByHover = hoveredUnit !== null;
+
+    if (!state.dragPreview && !heldUnit && !isPausedByHover) {
         const STEPS = 4;
         const subDeltaTime = deltaTime / STEPS;
         const moveStep = 1.0 / STEPS;
 
         for (let i = 0; i < STEPS; i++) {
-            resolveCollisions();
-            resolveCircularBounds();
-            state.units.forEach(u => u.update(subDeltaTime, moveStep));
+            resolveCollisions(currentLabUnits);
+            resolveCircularBounds(currentLabUnits);
+            currentLabUnits.forEach(u => u.update(subDeltaTime, moveStep));
         }
     }
 
-    // 2. Napisy informacyjne (Overlay)
     ctx.save();
     ctx.font = "bold 20px Arial";
     ctx.textAlign = "center";
 
-    // Wyświetlamy tylko jeden, najważniejszy komunikat na raz
-    if (state.isExtractMode) {
-        ctx.fillStyle = '#f1c40f'; // Żółty dla trybu ekstrakcji
-        ctx.fillText("TRYB POBIERANIA: KLIKNIJ ISTOTĘ", canvas.width / 2, 80);
-    } else if (state.dragPreview) {
+    if (state.dragPreview) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.fillText("UPUŚĆ KARTĘ ABY DODAĆ/ZMUTOWAĆ", canvas.width / 2, 50);
+        ctx.fillText("UPUŚĆ KARTĘ ABY ZMUTOWAĆ", canvas.width / 2, 50);
     } else if (heldUnit) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.fillText("PRZECIĄGNIJ NA DÓŁ ABY ZAPISAĆ DO TALII", canvas.width / 2, 50);
-    } else if (state.isLabPaused) {
-        ctx.fillStyle = '#e74c3c'; // Czerwony dla pauzy
-        ctx.fillText("SZALKA ZATRZYMANA (WYBIERZ JEDNOSTKĘ)", canvas.width / 2, 50);
+        ctx.fillText("PRZECIĄGNIJ NA DÓŁ ABY ZAPISAĆ", canvas.width / 2, 50);
+    } else if (isPausedByHover) {
+        // Delikatna wizualizacja, że gra jest zapauzowana (np. mruganie krawędzi)
+        ctx.fillStyle = 'rgba(46, 204, 113, 0.5)';
+        ctx.fillText("SKANOWANIE...", canvas.width / 2, 50);
     }
     ctx.restore();
 
-    state.units.forEach(u => u.draw());
+    currentLabUnits.forEach(u => u.draw());
 
-    // 3. Wizualizacja przeciągania
     if (heldUnit) {
         ctx.save();
         ctx.strokeStyle = '#f1c40f';
@@ -85,75 +86,96 @@ export function labLoop(deltaTime) {
 
 export function handleLabInteraction(type, e) {
     const rect = canvas.getBoundingClientRect();
-
-    // --- NOWOŚĆ: Obliczanie skali płótna (naprawia przesunięcie kursora) ---
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
-    // Zastosowanie mnożnika skali do pozycji myszy
     const mx = (e.clientX - rect.left) * scaleX;
     const my = (e.clientY - rect.top) * scaleY;
-
     mousePos = { x: mx, y: my };
 
-    if (type === 'mousedown') {
-        for (let i = state.units.length - 1; i >= 0; i--) {
-            const u = state.units[i];
+    const currentLabUnits = state.labUnits[state.activePlayerId] || [];
+    const tooltip = document.getElementById('unit-hover-tooltip');
+
+    if (type === 'mousemove') {
+        let foundHover = null;
+
+        // Szukamy, czy myszka nie najechała na jakiś mikrob (zwiększony margines detekcji +20)
+        for (let i = currentLabUnits.length - 1; i >= 0; i--) {
+            const u = currentLabUnits[i];
             const dist = Math.hypot(u.x - mx, u.y - my);
-
-            // Zwiększony margines kliknięcia (u.radius + 10) ułatwia obsługę na telefonie
-            if (dist < u.radius + 10) {
-                // LOGIKA POBIERANIA (Kliknięcie zamiast przeciągania)
-                if (state.isExtractMode) {
-                    saveUnitToDeck(u);
-                    state.isExtractMode = false;
-
-                    // Szukamy przycisku, by przywrócić mu pierwotny wygląd
-                    const btn = document.getElementById('extract-btn');
-                    if (btn) {
-                        btn.style.background = '#27ae60';
-                        btn.style.color = '#fff';
-                        btn.innerHTML = "📥 POBIERZ";
-                    }
-                    return; // Ważne: wychodzimy, nie chcemy zaczynać przeciągania
-                }
-
-                // ZWYKŁY TRYB: Łapiemy jednostkę
-                heldUnit = u;
+            if (dist < u.radius + 20) {
+                foundHover = u;
                 break;
             }
         }
-    }
-    else if (type === 'mousemove') {
+
+        hoveredUnit = foundHover;
+
+        if (hoveredUnit && !heldUnit && !state.dragPreview) {
+            // Wypełnianie tooltipu danymi
+            const stats = document.getElementById('tooltip-stats');
+            const typeInfo = UNIT_TYPES[hoveredUnit.type];
+            const mutNames = hoveredUnit.appliedMutations.length > 0 ?
+                hoveredUnit.appliedMutations.map(m => MUTATION_TYPES[m] ? MUTATION_TYPES[m].label : m).join(', ') : 'Brak';
+
+            stats.innerHTML = `
+                <div style="font-size:16px; margin-bottom:5px; color:${typeInfo.color}; text-transform:uppercase;"><b>${hoveredUnit.type} ${typeInfo.icon}</b></div>
+                <div>⚔️ Atak: <span style="color:#ff7675">${hoveredUnit.atk}</span></div>
+                <div>❤️ HP: <span style="color:#55efc4">${Math.ceil(hoveredUnit.hp)}</span></div>
+                <div style="margin-top:5px; color:#bdc3c7;">🧬 Geny:<br>${mutNames}</div>
+            `;
+
+            // Ustawianie pozycji tooltipa (używamy realnych pikseli ekranu, nie płótna)
+            tooltip.style.left = (rect.left + (hoveredUnit.x / scaleX)) + 'px';
+            tooltip.style.top = (rect.top + (hoveredUnit.y / scaleY)) + 'px';
+            tooltip.style.display = 'block';
+
+            // Zapewniamy, że przycisk wewnątrz tooltipa wie, kogo pobrać
+            const btnExtract = document.getElementById('tooltip-extract-btn');
+            btnExtract.onclick = () => saveUnitToDeck(hoveredUnit);
+
+        } else {
+            // Chowamy tooltip, jeśli mysz uciekła
+            // UWAGA: Sprawdzamy czy mysz nie najechała przypadkiem na sam Tooltip!
+            const isHoveringTooltip = document.elementFromPoint(e.clientX, e.clientY)?.closest('#unit-hover-tooltip');
+            if(!isHoveringTooltip) {
+                tooltip.style.display = 'none';
+            }
+        }
+
         if (heldUnit) {
-            heldUnit.x = mx;
-            heldUnit.y = my;
-            heldUnit.vx = 0;
-            heldUnit.vy = 0;
+            heldUnit.x = mx; heldUnit.y = my; heldUnit.vx = 0; heldUnit.vy = 0;
+            tooltip.style.display = 'none'; // Chowamy przy przeciąganiu
+        }
+    }
+    else if (type === 'mousedown') {
+        if (hoveredUnit && !document.elementFromPoint(e.clientX, e.clientY)?.closest('#unit-hover-tooltip')) {
+            heldUnit = hoveredUnit;
+            tooltip.style.display = 'none'; // Przenosimy, więc znikamy tooltip
         }
     }
     else if (type === 'mouseup') {
         if (heldUnit) {
-            // Sprawdzamy czy jednostka została przeciągnięta poza dolną krawędź szalki
             const isOverDeck = my > canvas.height - 120;
-            if (isOverDeck) {
-                saveUnitToDeck(heldUnit);
-            }
+            if (isOverDeck) saveUnitToDeck(heldUnit);
             heldUnit = null;
         }
     }
 }
 
-function saveUnitToDeck(unit) {
-    state.units = state.units.filter(u => u !== unit);
-
+// Funkcję przeniosłem do eksportu, aby przycisk w głównym DOM mógł ją wywołać
+export function saveUnitToDeck(unit) {
+    state.labUnits[state.activePlayerId] = state.labUnits[state.activePlayerId].filter(u => u !== unit);
     const newCard = {
-        category: 'unit',
-        type: unit.type,
+        category: 'unit', type: unit.type,
         savedMutations: unit.appliedMutations ? [...unit.appliedMutations] : []
     };
+    state.hands[state.activePlayerId].push(newCard);
 
-    state.playerHand.push(newCard);
+    // Zresetuj tooltip i zaznaczenie
+    document.getElementById('unit-hover-tooltip').style.display = 'none';
+    hoveredUnit = null;
+
     renderHands();
     updateUI();
 }
