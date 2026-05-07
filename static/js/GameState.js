@@ -6,15 +6,21 @@ export const state = {
     playerATP: 25, enemyATP: 25,
     playerHP: 100, enemyHP: 100,
     playerIncome: 0, enemyIncome: 0,
+    pipettes: { player: 3, enemy: 3 },
     labUnits: { player: [], enemy: [] },
     battleUnits: [],
     decks: { player: [], enemy: [] },
     hands: { player: [], enemy: [] },
     discards: { player: [], enemy: [] },
+
+    // --- NOWOŚĆ: Śledzenie obiektu najechanego w bocznym menu ---
+    hoveredUnitFromUI: null,
+
     selectedUnit: null, dragPreview: null, nextSpawnAngle: 0,
     energyDrops: []
 };
 
+// ... (reszta pliku pozostaje bez zmian)
 export function randomizePlayerAngle() {
     state.nextSpawnAngle = state.activePlayerId === 'player' ? (Math.PI + (Math.random() - 0.5)) : ((Math.random() - 0.5));
 }
@@ -34,16 +40,14 @@ export function initializeDecks() {
         state.hands[owner] = [];
         state.decks[owner] = [];
         state.discards[owner] = [];
+        state.pipettes[owner] = 3;
 
-        // Dodaliśmy 2x 'flower' do startowej talii!
         const baseUnits = ['virus', 'bacteria', 'tardigrade', 'macrophage', 'spore', 'paramecium', 'amoeba', 'bacteriophage', 'erythrocyte', 'flower', 'flower'];
 
-        // JEDNOSTKI: Każdy dostaje komplet na start
         baseUnits.forEach(type => {
             state.hands[owner].push({ category: 'unit', type: type, savedMutations: [] });
         });
 
-        // TALIA MUTACJI
         Object.keys(MUTATION_TYPES).forEach(m => {
             state.decks[owner].push({ category: 'mutation', type: m });
             state.decks[owner].push({ category: 'mutation', type: m });

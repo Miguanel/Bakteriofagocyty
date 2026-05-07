@@ -75,6 +75,7 @@
 
             <div id="unit-list-panel" class="floating-panel" style="display: flex;">
                 <h3 style="margin: 15px 0 5px 0; text-align: center; color: var(--active-color);">📊 STAN KOLONII</h3>
+                <div style="text-align: center; font-size: 13px; color: #00cec9; font-weight: bold; margin-bottom: 5px;" id="ui-pipette-count">🧪 PIPETY: 3/9</div>
                 <div style="text-align: center; font-size: 10px; color: #bdc3c7;">Przeciągnij gen na listę</div>
                 <div id="details-list" class="details-list"></div>
                 <div class="details-summary">
@@ -96,7 +97,16 @@
             <button id="action-btn" class="cosmic-btn">SKOK W NADPRZESTRZEŃ</button>
         </div>
 
-        <div id="deck-container" class="cosmic-deck"></div>
+        <div id="dual-deck-container">
+            <div class="deck-row-wrapper">
+                <div class="deck-row-label" style="color:#2ecc71;">🧫 ORGANIZMY</div>
+                <div class="deck-track" id="units-track"></div>
+            </div>
+            <div class="deck-row-wrapper">
+                <div class="deck-row-label" style="color:#9b59b6;">🧬 MUTACJE</div>
+                <div class="deck-track" id="mutations-track"></div>
+            </div>
+        </div>
     </div>
 
     <script type="module" src="static/js/main.js"></script>
