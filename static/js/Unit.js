@@ -1,6 +1,6 @@
 import { UNIT_TYPES, PHASES, MUTATION_TYPES } from './constants.js';
 import { state } from './GameState.js';
-import { canvas } from './Canvas.js';
+import { canvas, ctx } from './Canvas.js';
 import { drawUnitVisuals, drawVectorArrow } from './Graphics.js';
 
 export class Unit {
@@ -39,21 +39,85 @@ export class Unit {
             case 'APOPTOSIS': this.atk += 15; this.traits.kamikaze = true; break;
             case 'CORDYCEPS': this.traits.necromancy = true; break;
             case 'LIPIDS': this.mass *= 3.0; this.maxHp += 20; this.hp += 20; this.baseSpeed *= 0.1; break;
-
-            // --- NOWE HYBRYDY ---
             case 'SYMBIOSIS': this.maxHp += 15; this.hp += 15; this.traits.photosynthesis += 2; break;
             case 'PREDATOR_DNA': this.atk += 10; this.baseSpeed *= 1.3; break;
             case 'SPIKED_ARMOR': this.maxHp += 20; this.hp += 20; this.traits.thorns = true; break;
             case 'MUTANT_BLOOD': this.traits.regeneration = true; this.atk += 5; break;
+            case 'SLIME_CAPSULE': this.maxHp += 40; this.hp += 40; break;
         }
+    }
+
+    recalculateStats() {
+        const stats = UNIT_TYPES[this.type];
+        this.radius = stats.radius;
+        this.mass = stats.mass;
+        this.baseSpeed = stats.baseSpeed;
+        this.atk = stats.atk;
+        this.maxHp = stats.hp;
+
+        this.traits = { regeneration: false, thorns: false, agile: false, photosynthesis: 0, kamikaze: false, necromancy: false };
+        this.activeBuffs = [];
+        const retainedMutations = [...this.appliedMutations];
+        this.appliedMutations = [];
+
+        retainedMutations.forEach(m => this.applyGeneticCard(m));
+        if (this.hp > this.maxHp) this.hp = this.maxHp;
     }
 
     draw() {
         drawUnitVisuals(this, 1.0, this.damageCooldown > 0);
-        if (state.phase.startsWith('PLANNING') && !this.isDormant && this.baseSpeed > 0) this.drawArrow();
+
+        // --- NOWOŚĆ: Poświata wskazująca namierzony z UI cel na arenie ---
+        if (state.hoveredUnitFromUI === this) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius + 15, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        if (state.phase.startsWith('PLANNING') && !this.isDormant && this.baseSpeed > 0 && this.type !== 'core_base') {
+            this.drawArrowAndGhost();
+        }
     }
 
-    drawArrow() { drawVectorArrow(this.x, this.y, Math.atan2(this.vy, this.vx), 1.0); }
+    drawArrowAndGhost() {
+        drawVectorArrow(this.x, this.y, Math.atan2(this.vy, this.vx), 1.0);
+        const c1 = { x: 280, y: 225, r: 170 };
+        const c2 = { x: 520, y: 225, r: 170 };
+        const allowedDist = c1.r - this.radius;
+
+        let ghostX = this.x; let ghostY = this.y;
+        const stepX = this.vx * 0.3; const stepY = this.vy * 0.3;
+
+        for (let step = 0; step < 500; step++) {
+            ghostX += stepX; ghostY += stepY;
+            const dist1 = Math.hypot(ghostX - c1.x, ghostY - c1.y);
+            const dist2 = Math.hypot(ghostX - c2.x, ghostY - c2.y);
+            if (dist1 > allowedDist && dist2 > allowedDist) break;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        ctx.beginPath();
+        const points = 24;
+        for (let i = 0; i <= points; i++) {
+            const angle = (i / points) * Math.PI * 2;
+            const px = ghostX + Math.cos(angle) * this.radius;
+            const py = ghostY + Math.sin(angle) * this.radius;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = this.baseColor; ctx.fill();
+        ctx.strokeStyle = this.factionColor; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.stroke();
+        ctx.restore();
+    }
 
     update(deltaTime, moveMultiplier = 1.0) {
         if (this.traits.regeneration && this.hp > 0 && !this.isDormant && this.hp < this.maxHp) {
@@ -61,6 +125,27 @@ export class Unit {
         }
         if (this.damageCooldown > 0) this.damageCooldown -= deltaTime;
 
+        // --- NOWOŚĆ: Fizyka dla Rdzenia Kolonii (Motherbase) ---
+        if (this.type === 'core_base') {
+            // Pomału buja się na boki
+            this.vx = Math.sin(Date.now() / 1500 + (this.owner === 'player' ? 0 : Math.PI)) * 0.6;
+            this.vy = 0;
+            this.y = this.owner === 'player' ? canvas.height - 48 : 48; // Zablokowany blisko krawędzi
+            this.x += this.vx * moveMultiplier;
+
+            // Synchronizacja HP do głównego state'a
+            if (this.owner === 'player') state.playerHP = this.hp;
+            else state.enemyHP = this.hp;
+
+            // Kiedy ten rdzeń umrze, to game over!
+            if (this.hp <= 0 && !this.isDeadFlag) {
+                this.isDeadFlag = true;
+                import('./StepManager.js').then(mod => mod.StepManager.resolveCombatEnd(this.owner));
+            }
+            return; // Kończymy Update dla Rdzenia (omijamy zwykłą fizykę)
+        }
+
+        // --- Zwykłe Komórki ---
         if (this.hp <= 0 && !this.isDeadFlag) {
             this.hp = 0;
             if (this.type === 'tardigrade' && !this.isDormant) {
@@ -75,7 +160,6 @@ export class Unit {
                 }
 
                 if (this.traits.necromancy) {
-                    // Wskrzeszamy z wirusem! Zmiana na push do battleUnits lub labUnits
                     const targetArr = state.phase.startsWith('LAB_') ? state.labUnits[this.owner] : state.battleUnits;
                     targetArr.push(new Unit(this.x, this.y, 'virus', this.owner, Math.random() * Math.PI * 2));
                 }

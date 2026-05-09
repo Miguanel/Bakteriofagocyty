@@ -162,3 +162,118 @@ export function saveUnitToDeck(unit) {
     renderHands();
     updateUI();
 }
+
+// ... (istniejąca zawartość Lab.js) ...
+
+// --- NOWOŚĆ: Fizyka działająca w tle dla OBU Graczy! ---
+export function updateBackgroundLab(deltaTime) {
+    const savedUnits = state.units;
+
+    // 1. Symulacja laboratorium Gracza 1 (Niebieski)
+    state.units = state.labUnits['player'] || [];
+    if (state.units.length > 0) {
+        resolveCollisions();
+        resolveCircularBounds();
+        state.units.forEach(u => u.update(deltaTime, 1.0));
+    }
+
+    // 2. Symulacja laboratorium Gracza 2 (Czerwony)
+    state.units = state.labUnits['enemy'] || [];
+    if (state.units.length > 0) {
+        resolveCollisions();
+        resolveCircularBounds();
+        state.units.forEach(u => u.update(deltaTime, 1.0));
+    }
+
+    // Zwracamy fizykę z powrotem do areny bitewnej
+    state.units = savedUnits;
+}
+
+// Funkcja pomocnicza do rysowania pojedynczego radaru
+function drawSingleRadar(canvasId, playerId, title, accentColor, sweepColor) {
+    const mCanvas = document.getElementById(canvasId);
+    if (!mCanvas) return;
+    const mCtx = mCanvas.getContext('2d');
+    const w = mCanvas.width;
+    const h = mCanvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = cx - 2;
+
+    mCtx.clearRect(0, 0, w, h);
+    mCtx.save();
+
+    // 1. Tło radaru
+    mCtx.beginPath();
+    mCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+    mCtx.fillStyle = 'rgba(15, 25, 35, 0.9)';
+    mCtx.fill();
+    mCtx.strokeStyle = accentColor;
+    mCtx.lineWidth = 2;
+    mCtx.stroke();
+
+    // 2. Siatka i krzyż celowniczy
+    mCtx.beginPath();
+    mCtx.arc(cx, cy, radius * 0.5, 0, Math.PI * 2);
+    mCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    mCtx.lineWidth = 1;
+    mCtx.stroke();
+
+    mCtx.beginPath();
+    mCtx.moveTo(cx, 0); mCtx.lineTo(cx, h);
+    mCtx.moveTo(0, cy); mCtx.lineTo(w, cy);
+    mCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    mCtx.stroke();
+
+    // 3. Rysowanie jednostek w laboratorium na radarze
+    const units = state.labUnits[playerId] || [];
+    const scale = radius / 200; // Skala do oryginalnej szalki (200px)
+
+    units.forEach(u => {
+        const mx = cx + (u.x - 400) * scale;
+        const my = cy + (u.y - 225) * scale;
+
+        mCtx.beginPath();
+        mCtx.arc(mx, my, Math.max(2, u.radius * scale), 0, Math.PI * 2);
+        mCtx.fillStyle = u.baseColor;
+        mCtx.fill();
+
+        mCtx.shadowBlur = 5;
+        mCtx.shadowColor = u.factionColor;
+        mCtx.strokeStyle = '#fff';
+        mCtx.lineWidth = 1;
+        mCtx.stroke();
+        mCtx.shadowBlur = 0;
+    });
+
+    // 4. Obracająca się linia skanująca (Radar Sweep)
+    const time = Date.now() / 800;
+    const sweepAngle = time % (Math.PI * 2);
+
+    mCtx.beginPath();
+    mCtx.moveTo(cx, cy);
+    mCtx.arc(cx, cy, radius, sweepAngle, sweepAngle + 0.5);
+    mCtx.lineTo(cx, cy);
+
+    // Gradient promienia radaru
+    const sweepGradient = mCtx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    sweepGradient.addColorStop(0, sweepColor);
+    sweepGradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+    mCtx.fillStyle = sweepGradient;
+    mCtx.fill();
+
+    // 5. Tytuł Radaru
+    mCtx.fillStyle = accentColor;
+    mCtx.font = 'bold 10px Orbitron, sans-serif';
+    mCtx.textAlign = 'center';
+    mCtx.fillText(title, cx, cy + radius - 10);
+
+    mCtx.restore();
+}
+
+// --- NOWOŚĆ: Główna funkcja wywołująca oba radary ---
+export function renderMinimap() {
+    drawSingleRadar('minimapCanvas-p1', 'player', 'LAB: LUDZIE', '#00cec9', 'rgba(0, 206, 201, 0.6)');
+    drawSingleRadar('minimapCanvas-p2', 'enemy', 'LAB: OBCY', '#ff7675', 'rgba(255, 118, 117, 0.6)');
+}

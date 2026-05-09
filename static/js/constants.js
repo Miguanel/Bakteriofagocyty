@@ -44,11 +44,21 @@ export const UNIT_TYPES = {
         icon: '🔴', color: '#e74c3c', income: 1,
         description: "Tania żywa tarcza. Nie potrafi atakować."
     },
-    // --- NOWA JEDNOSTKA: KWIAT ---
     'flower': {
         cost: 3, radius: 26, mass: 15.0, baseSpeed: 0, atk: 0, hp: 15,
         icon: '🌸', color: '#ff9ff3', income: 5,
         description: "Kosmiczna Flora. Nieruchomy i bezbronny, ale generuje dużo ATP."
+    },
+    'trichocyst': {
+        cost: 5, radius: 24, mass: 15.0, baseSpeed: 0, atk: 12, hp: 20,
+        icon: '👁️', color: '#00cec9', income: 0, range: 150,
+        description: "Bio-Wieżyczka. Nieruchoma, strzela kwasem we wrogów na dystans!"
+    },
+    // --- NOWOŚĆ: RDZEŃ KOLONII ---
+    'core_base': {
+        cost: 0, radius: 42, mass: 15000, baseSpeed: 0.8, atk: 0, hp: 500,
+        icon: '🌍', color: '#000', income: 0,
+        description: "Rdzeń Kolonii. Jeśli zginie, przegrywasz wojnę!"
     }
 };
 
@@ -67,7 +77,11 @@ export const MUTATION_TYPES = {
     'SYMBIOSIS': { cost: 5, label: "Symbioza", icon: "🤝", description: "+15 HP i produkuje +2 ATP co turę." },
     'PREDATOR_DNA': { cost: 6, label: "Drapieżnik", icon: "🐅", description: "+10 ATK i +30% Szybkości." },
     'SPIKED_ARMOR': { cost: 6, label: "Kolczuga", icon: "🦔", description: "+20 HP i zadaje obrażenia dotykowe." },
-    'MUTANT_BLOOD': { cost: 7, label: "Krew Mutanta", icon: "🧪", description: "Zapewnia Regenerację oraz +5 ATK." }
+    'MUTANT_BLOOD': { cost: 7, label: "Krew Mutanta", icon: "🧪", description: "Zapewnia Regenerację oraz +5 ATK." },
+    'SLIME_CAPSULE': {
+        cost: 6, label: "Kapsuła Śluzowa", icon: "🧿",
+        description: "Potężna tarcza. Jednostka odbija strzały i ma +40 HP."
+    }
 };
 
 export const TURN_DURATION = 3000;

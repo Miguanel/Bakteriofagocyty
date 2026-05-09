@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Mikro Arena - Centrala Danych</title>
+    <link rel="stylesheet" href="static/css/style.css">
+    <style>
+        /* Nadpisanie ustawień dla strony scrollowanej */
+        body { overflow: auto; padding: 40px 20px; justify-content: flex-start; }
+        .stats-container { max-width: 900px; width: 100%; margin: 0 auto; }
+
+        .stats-card {
+            background: rgba(10,15,25,0.9); border: 2px solid #00cec9; border-radius: 12px;
+            padding: 30px; margin-bottom: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        h1, h2 { color: #00ffea; text-align: center; margin-top: 0; text-transform: uppercase; letter-spacing: 2px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; color: #ecf0f1; font-size: 14px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        th { color: #00cec9; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        tr:hover { background: rgba(255,255,255,0.05); }
+
+        .back-btn {
+            display: inline-block; background: rgba(0,0,0,0.5); color: #00cec9;
+            padding: 10px 25px; border-radius: 20px; text-decoration: none;
+            font-weight: bold; margin-bottom: 20px; border: 2px solid #00cec9; transition: 0.2s;
+        }
+        .back-btn:hover { background: #00cec9; color: #000; box-shadow: 0 0 15px #00cec9; transform: scale(1.05); }
+    </style>
+</head>
+<body class="cosmic-theme">
+    <div class="stats-container">
+        <a href="/" class="back-btn">◀ POWRÓT DO LABORATORIUM</a>
+
+        <div class="stats-card">
+            <h1>📊 BAZA DANYCH MIKRO-ARENY</h1>
+            <div style="display: flex; justify-content: center; margin-top: 20px; font-size: 20px;">
+                <div style="text-align: center;">ROZEGRANE BITEW<br><b style="color: #f1c40f; font-size: 40px;">{{ stats.total }}</b></div>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <h2>🏆 TABELA LIDERÓW</h2>
+            <table>
+                <tr>
+                    <th>Komandor / Szczep</th>
+                    <th>Zwycięstwa</th>
+                </tr>
+                {% for player, count in stats.wins.items() %}
+                <tr>
+                    <td><b>{{ player }}</b></td>
+                    <td style="color:#55efc4; font-weight:bold; font-size: 18px;">{{ count }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <div class="stats-card">
+            <h2>⏱️ HISTORIA STARĆ</h2>
+            <table>
+                <tr>
+                    <th>Zwycięzca</th>
+                    <th>Przegrany</th>
+                    <th>Tryb Gry</th>
+                    <th>Data (UTC)</th>
+                </tr>
+                {% for match in recent %}
+                <tr>
+                    <td style="color:#00cec9; font-weight:bold;">🏆 {{ match.winner }}</td>
+                    <td style="color:#ff7675;">💀 {{ match.loser }}</td>
+                    <td><span style="background:rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px;">{{ match.mode | upper }}</span></td>
+                    <td style="font-size:12px; color:#bdc3c7;">{{ match.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+</body>
+</html>

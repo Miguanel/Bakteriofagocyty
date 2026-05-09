@@ -3,7 +3,6 @@ import { UNIT_TYPES, MUTATION_TYPES } from './constants.js';
 import { Unit } from './Unit.js';
 import { gameContainer, canvas } from './Canvas.js';
 
-// BEZPIECZNIK TUTORIALA - O to krzyczała konsola!
 const tutorialPanel = document.getElementById('tutorial-panel') || (function() {
     const tp = document.createElement('div');
     tp.id = 'tutorial-panel';
@@ -12,17 +11,9 @@ const tutorialPanel = document.getElementById('tutorial-panel') || (function() {
     return tp;
 })();
 
-const enemyHandContainer = document.getElementById('enemy-hand-container');
-const atpValueLabel = document.getElementById('atp-value');
-const enemyAtpLabel = document.getElementById('enemy-atp-val');
-const playerHpText = document.getElementById('player-hp-text');
-const enemyHpText = document.getElementById('enemy-hp-text');
-const playerHpFill = document.getElementById('player-hp-fill');
-const enemyHpFill = document.getElementById('enemy-hp-fill');
-
-// Śledzimy scrollowanie obu pasków
 const unitsTrack = document.getElementById('units-track');
 const mutationsTrack = document.getElementById('mutations-track');
+const cardTooltip = document.getElementById('card-tooltip'); // NOWOŚĆ
 
 if(unitsTrack) {
     unitsTrack.addEventListener('wheel', (e) => {
@@ -34,6 +25,15 @@ if(mutationsTrack) {
         if (e.deltaY !== 0) { e.preventDefault(); mutationsTrack.scrollLeft += e.deltaY; }
     });
 }
+
+// NOWOŚĆ: Skrypt sprawiający, że okienko informacji podąża za myszką
+document.addEventListener('mousemove', (e) => {
+    if (cardTooltip && cardTooltip.style.display === 'block') {
+        // Ustawia tooltip lekko powyżej i obok kursora
+        cardTooltip.style.left = (e.clientX + 15) + 'px';
+        cardTooltip.style.top = (e.clientY - cardTooltip.offsetHeight - 15) + 'px';
+    }
+});
 
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.clickable-mutation')) {
@@ -74,19 +74,6 @@ export function renderHands() {
         cardEl.addEventListener('click', () => { if(!state.dragPreview) showBioModal(cardData); });
         mutationsTrack.appendChild(cardEl);
     });
-
-    if (enemyHandContainer) {
-        enemyHandContainer.innerHTML = '';
-        if (state.gameMode === 'pve' && state.activePlayerId === 'player') {
-            const opHand = state.hands['enemy'] || [];
-            opHand.forEach(() => {
-                const miniCard = document.createElement('div');
-                miniCard.className = 'mini-card';
-                miniCard.innerText = '🧬';
-                enemyHandContainer.appendChild(miniCard);
-            });
-        }
-    }
 
     initDragAndDrop();
     updateCardAvailability();
@@ -159,8 +146,57 @@ function createCardElement(cardData, index) {
 
     el.dataset.category = cardData.category;
     el.dataset.type = cardData.type;
+
+    // --- NOWOŚĆ: Logika Tooltipów najeżdżania myszką ---
+    el.addEventListener('mouseenter', () => {
+        if (state.dragPreview || !cardTooltip) return;
+
+        let titleHtml, statsHtml, descHtml, accentColor;
+
+        if (cardData.category === 'unit') {
+            const base = UNIT_TYPES[cardData.type];
+            accentColor = base.color;
+            titleHtml = `<div style="font-size:18px; font-weight:bold; color:${accentColor};">${base.icon} ${cardData.type.toUpperCase()}</div><div style="font-size:10px; color:#bdc3c7;">ORGANIZM</div>`;
+            statsHtml = `
+                <span style="color:#ff7675;">⚔️ Atak: ${base.atk}</span>
+                <span style="color:#55efc4;">❤️ Życie: ${base.hp}</span>
+                <span style="color:#0984e3;">⚡ Szybkość: ${base.baseSpeed}</span>
+            `;
+            descHtml = base.description;
+
+            if (cardData.savedMutations && cardData.savedMutations.length > 0) {
+                descHtml += `<br><br><span style="color:#f1c40f; font-weight:bold;">✨ Zmodyfikowany genetycznie (${cardData.savedMutations.length})</span>`;
+            }
+        } else {
+            const m = MUTATION_TYPES[cardData.type];
+            accentColor = "#9b59b6";
+            titleHtml = `<div style="font-size:18px; font-weight:bold; color:${accentColor};">${m.icon} ${m.label.toUpperCase()}</div><div style="font-size:10px; color:#bdc3c7;">MODYFIKACJA GENETYCZNA</div>`;
+            statsHtml = `<span style="color:#f1c40f;">Koszt w ATP: ${m.cost} ⚡</span>`;
+            descHtml = m.description;
+        }
+
+        cardTooltip.innerHTML = `
+            <div style="border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 8px; margin-bottom: 8px;">
+                ${titleHtml}
+            </div>
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin-bottom: 10px;">
+                ${statsHtml}
+            </div>
+            <div style="font-size: 13px; color: #ecf0f1; font-style: italic; line-height: 1.4;">
+                "${descHtml}"
+            </div>
+        `;
+        cardTooltip.style.borderTopColor = accentColor;
+        cardTooltip.style.display = 'block';
+    });
+
+    el.addEventListener('mouseleave', () => { if (cardTooltip) cardTooltip.style.display = 'none'; });
+    el.addEventListener('mousedown', () => { if (cardTooltip) cardTooltip.style.display = 'none'; });
+    el.addEventListener('dragstart', () => { if (cardTooltip) cardTooltip.style.display = 'none'; });
+
     return el;
 }
+
 
 export function populateDetailsPanel() {
     const listEl = document.getElementById('details-list');
@@ -190,7 +226,6 @@ export function populateDetailsPanel() {
 
         const mutCardsHtml = u.appliedMutations.map((mCode, mIdx) => {
             const mutInfo = MUTATION_TYPES[mCode] || { label: mCode, icon: '🧬', cost: 0, description: 'Brak danych' };
-
             let statText = "";
             if(mCode === 'TANK_DNA') statText = '<span style="color:#55efc4">+50% ❤️</span>';
             else if(mCode === 'CHLOROPLASTS') statText = '<span style="color:#f1c40f">+3 ⚡</span>';
@@ -235,13 +270,12 @@ export function populateDetailsPanel() {
                 <div class="detail-atp">+${unitIncome} ⚡</div>
             </div>
             <div class="unit-actions-grid">
-                <button class="unit-action-btn extract-btn">📥 POBIERZ DO TALII</button>
+                <button class="unit-action-btn extract-btn">📥 POBIERZ</button>
                 <button class="unit-action-btn stats-btn">📊 STATYSTYKI</button>
-                <button class="unit-action-btn discard-btn">❌ ZNISZCZ (ZRÓB MIEJSCE)</button>
+                <button class="unit-action-btn discard-btn">❌ ZNISZCZ</button>
             </div>
         `;
 
-        // Cross-Highlighting: najechanie w menu zapala aurę na głównym ekranie
         item.addEventListener('mouseenter', () => state.hoveredUnitFromUI = u);
         item.addEventListener('mouseleave', () => state.hoveredUnitFromUI = null);
 
@@ -331,40 +365,90 @@ export function populateDetailsPanel() {
         });
     });
 
-    totalAtpEl.innerText = totalAtp;
+    if (totalAtpEl) totalAtpEl.innerText = totalAtp;
 }
 
 export function updateUI() {
     const isLab = state.phase.startsWith('LAB_');
-    const currentATP = state.activePlayerId === 'player' ? state.playerATP : state.enemyATP;
 
-    if (isLab) {
-        const currentLabUnits = state.labUnits[state.activePlayerId] || [];
-        const currentLabIncome = currentLabUnits.reduce((sum, u) => sum + (UNIT_TYPES[u.type]?.income || 0) + (u.traits.photosynthesis || 0), 0);
-        atpValueLabel.innerHTML = `${currentATP} <span style="font-size:12px; color:#2ecc71; margin-left:5px;">(+${currentLabIncome} z szalki)</span>`;
-    } else {
-        const battleIncome = state.battleUnits.reduce((sum, u) => {
-            if (u.owner === state.activePlayerId && !u.isDormant) return sum + (UNIT_TYPES[u.type].income || 0) + (u.traits.photosynthesis || 0);
-            return sum;
-        }, 0);
+    const atpValueLabel = document.getElementById('atp-value');
 
-        const baseIncome = state.activePlayerId === 'player' ? state.playerIncome : state.enemyIncome;
-        const totalIncome = 5 + (baseIncome || 0) + battleIncome;
+    // --- NOWA LOGIKA BAZ DANYCH (OBA MOTHERBARY) ---
+    const activeIsP1 = state.activePlayerId === 'player';
 
-        atpValueLabel.innerHTML = `${currentATP} <span style="font-size:14px; color:#2ecc71; font-weight:bold;">(+${totalIncome})</span>`;
+    // Dane aktywnego gracza (dla dolnej belki)
+    const activeName = activeIsP1 ? state.p1Name : state.p2Name;
+    const activeAvatar = activeIsP1 ? state.p1Avatar : state.p2Avatar;
+    const activeColor = activeIsP1 ? state.p1Color : state.p2Color;
+    const activeHp = activeIsP1 ? state.playerHP : state.enemyHP;
+    const currentATP = activeIsP1 ? state.playerATP : state.enemyATP;
+
+    // Dane gracza oczekującego (dla górnej belki)
+    const inactiveName = activeIsP1 ? state.p2Name : state.p1Name;
+    const inactiveAvatar = activeIsP1 ? state.p2Avatar : state.p1Avatar;
+    const inactiveColor = activeIsP1 ? state.p2Color : state.p1Color;
+    const inactiveHp = activeIsP1 ? state.enemyHP : state.playerHP;
+
+    // AKTUALIZACJA DOLNEJ BELKI (Twojej)
+    const playerNameHud = document.getElementById('player-name-hud');
+    const playerAvatarHud = document.getElementById('player-avatar-hud');
+    const playerHpText = document.getElementById('player-hp-text');
+    const motherbarPanel = document.getElementById('motherbar-panel');
+
+    if (playerNameHud) {
+        playerNameHud.innerText = activeName;
+        playerNameHud.style.color = activeColor;
     }
+    if (playerAvatarHud) playerAvatarHud.innerText = activeAvatar;
+    if (playerHpText) playerHpText.innerText = `${Math.ceil(activeHp)} / 500`;
+    if (motherbarPanel) motherbarPanel.style.borderTopColor = activeColor;
 
-    enemyAtpLabel.innerText = state.enemyATP;
-    playerHpText.innerText = Math.max(0, Math.ceil(state.playerHP)) + " HP";
-    enemyHpText.innerText = Math.max(0, Math.ceil(state.enemyHP)) + " HP";
-    const playerPct = Math.max(0, (state.playerHP / 100) * 100);
-    const enemyPct = Math.max(0, (state.enemyHP / 100) * 100);
-    playerHpFill.style.width = playerPct + "%";
-    enemyHpFill.style.width = enemyPct + "%";
+    // AKTUALIZACJA GÓRNEJ BELKI (Przeciwnika)
+    const enemyNameHud = document.getElementById('enemy-name-hud');
+    const enemyAvatarHud = document.getElementById('enemy-avatar-hud');
+    const enemyHpTextTop = document.getElementById('enemy-hp-text-top');
+    const topHudWrapper = document.getElementById('top-hud-wrapper');
+
+    if (enemyNameHud) {
+        enemyNameHud.innerText = inactiveName;
+        enemyNameHud.style.color = inactiveColor;
+    }
+    if (enemyAvatarHud) enemyAvatarHud.innerText = inactiveAvatar;
+    if (enemyHpTextTop) enemyHpTextTop.innerText = `${Math.ceil(inactiveHp)} / 500`;
+    if (topHudWrapper) topHudWrapper.style.borderTopColor = inactiveColor;
+
+
+    // Bezpieczne ładowanie ATP
+    if (atpValueLabel) {
+        if (isLab) {
+            const currentLabUnits = state.labUnits[state.activePlayerId] || [];
+            const currentLabIncome = currentLabUnits.reduce((sum, u) => sum + (UNIT_TYPES[u.type]?.income || 0) + (u.traits.photosynthesis || 0), 0);
+            atpValueLabel.innerHTML = `${currentATP} <span style="font-size:12px; color:#2ecc71; margin-left:5px;">(+${currentLabIncome})</span>`;
+        } else {
+            const battleIncome = state.battleUnits.reduce((sum, u) => {
+                if (u.owner === state.activePlayerId && !u.isDormant) return sum + (UNIT_TYPES[u.type].income || 0) + (u.traits.photosynthesis || 0);
+                return sum;
+            }, 0);
+            const totalIncome = 5 + battleIncome;
+            atpValueLabel.innerHTML = `${currentATP} <span style="font-size:14px; color:#2ecc71; font-weight:bold;">(+${totalIncome})</span>`;
+        }
+    }
 
     updateCardAvailability();
     updateTutorialText();
     populateDetailsPanel();
+
+    const surrControls = document.getElementById('surrender-controls');
+    const actionBtn = document.getElementById('action-btn');
+    if (state.phase === 'COMBAT') {
+        if (surrControls) surrControls.style.display = 'flex';
+        if (actionBtn) actionBtn.innerText = "🔄 ZMIEŃ RĘKĘ / GRACZA";
+    } else {
+        if (surrControls) surrControls.style.display = 'none';
+        if (actionBtn) actionBtn.innerText = "SKOK W NADPRZESTRZEŃ";
+    }
+
+    document.dispatchEvent(new Event('gameStateChanged'));
 }
 
 function updateTutorialText() {
@@ -373,7 +457,7 @@ function updateTutorialText() {
     if (state.phase.startsWith('LAB_')) {
         title = `🔬 Laboratorium (${state.activePlayerId === 'player' ? state.p1Name : state.p2Name})`;
         borderColor = "#00ffea";
-        content = `<ul><li><b>Najedź na organizm na liście</b>, aby rozwinąć jego ukryte opcje!</li></ul>`;
+        content = `<ul><li><b>Najedź na organizm na liście</b>, aby rozwinąć opcje!</li></ul>`;
     } else if (state.phase.startsWith('PLANNING_')) {
         title = `⏱️ Rozstawianie (${state.activePlayerId === 'player' ? state.p1Name : state.p2Name})`;
         borderColor = state.activePlayerId === 'player' ? "#00cec9" : "#ff7675";
@@ -384,12 +468,14 @@ function updateTutorialText() {
         content = `<ul><li>Walka aż do upadku jednej z armii!</li></ul>`;
     }
 
-    tutorialPanel.style.borderRightColor = borderColor;
-    if(window.innerWidth <= 1050) {
-        tutorialPanel.style.borderTopColor = borderColor;
-        tutorialPanel.style.borderRightColor = 'transparent';
+    if (tutorialPanel) {
+        tutorialPanel.style.borderRightColor = borderColor;
+        if(window.innerWidth <= 1050) {
+            tutorialPanel.style.borderTopColor = borderColor;
+            tutorialPanel.style.borderRightColor = 'transparent';
+        }
+        tutorialPanel.innerHTML = `<h3 style="color: ${borderColor}">${title}</h3>${content}`;
     }
-    tutorialPanel.innerHTML = `<h3 style="color: ${borderColor}">${title}</h3>${content}`;
 }
 
 function updateCardAvailability() {
@@ -430,7 +516,8 @@ export function initDragAndDrop() {
     const cards = document.querySelectorAll('.card');
     cards.forEach(card => {
         card.addEventListener('dragstart', (e) => {
-            if (state.phase === 'COMBAT' || state.phase === 'PLANNING_AI') { e.preventDefault(); return; }
+            if (state.phase === 'PLANNING_AI') { e.preventDefault(); return; }
+
             const index = card.dataset.handIndex;
             const activeHand = state.hands[state.activePlayerId];
             if (!activeHand || !activeHand[index]) { e.preventDefault(); return; }
@@ -471,85 +558,87 @@ function findUnitAt(mx, my) {
     return null;
 }
 
-canvas.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    if (!state.dragPreview) return;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+if (canvas) {
+    canvas.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (!state.dragPreview) return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
 
-    state.dragPreview.x = (e.clientX - rect.left) * scaleX;
-    state.dragPreview.y = (e.clientY - rect.top) * scaleY;
+        state.dragPreview.x = (e.clientX - rect.left) * scaleX;
+        state.dragPreview.y = (e.clientY - rect.top) * scaleY;
 
-    if (state.dragPreview.category === 'mutation') {
-        const target = findUnitAt(state.dragPreview.x, state.dragPreview.y);
+        if (state.dragPreview.category === 'mutation') {
+            const target = findUnitAt(state.dragPreview.x, state.dragPreview.y);
 
-        if (target && target.owner === state.activePlayerId) {
-            state.dragPreview.validTarget = true;
-            state.dragPreview.targetUnit = target;
-        } else {
-            state.dragPreview.validTarget = false;
-            state.dragPreview.targetUnit = null;
-        }
-    } else {
-        state.dragPreview.validTarget = true;
-    }
-});
-
-canvas.addEventListener('drop', (e) => {
-    e.preventDefault();
-    if (!state.dragPreview) return;
-    const { category, type, cost, x, y, validTarget, targetUnit, index, savedMutations } = state.dragPreview;
-    if (!validTarget) return;
-
-    let success = false;
-    const currentUnits = state.phase.startsWith('LAB_') ? state.labUnits[state.activePlayerId] : state.battleUnits;
-
-    if (category === 'unit') {
-        if (UNIT_TYPES[type]) {
-            const newUnit = new Unit(x, y, type, state.activePlayerId, state.nextSpawnAngle);
-            if (savedMutations && savedMutations.length > 0) {
-                savedMutations.forEach(mCode => newUnit.applyGeneticCard(mCode));
-            }
-            currentUnits.push(newUnit);
-            if (state.activePlayerId === 'player') state.playerATP -= cost; else state.enemyATP -= cost;
-            success = true;
-        }
-    } else if (category === 'mutation') {
-        if (targetUnit) {
-            if (type === 'EXTRA_PIPETTE') {
-                if(!state.pipettes) state.pipettes = { player: 3, enemy: 3 };
-                state.pipettes[state.activePlayerId] = Math.min(9, state.pipettes[state.activePlayerId] + 3);
-                showDamageNumber(`+3 🧪 PIPETA`, targetUnit.x, targetUnit.y, '#00cec9');
-                if (state.activePlayerId === 'player') state.playerATP -= cost; else state.enemyATP -= cost;
-                success = true;
-            } else if (type === 'MITOSIS') {
-                const clone = new Unit(targetUnit.x + targetUnit.radius + 10, targetUnit.y, targetUnit.type, state.activePlayerId, state.nextSpawnAngle);
-                if (targetUnit.appliedMutations) { targetUnit.appliedMutations.forEach(mCode => clone.applyGeneticCard(mCode)); }
-                currentUnits.push(clone);
-                if (state.activePlayerId === 'player') state.playerATP -= cost; else state.enemyATP -= cost;
-                showDamageNumber(`➗ KLON!`, targetUnit.x, targetUnit.y - 20, '#9b59b6');
-                success = true;
+            if (target && target.owner === state.activePlayerId) {
+                state.dragPreview.validTarget = true;
+                state.dragPreview.targetUnit = target;
             } else {
-                targetUnit.applyGeneticCard(type);
+                state.dragPreview.validTarget = false;
+                state.dragPreview.targetUnit = null;
+            }
+        } else {
+            state.dragPreview.validTarget = true;
+        }
+    });
+
+    canvas.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (!state.dragPreview) return;
+        const { category, type, cost, x, y, validTarget, targetUnit, index, savedMutations } = state.dragPreview;
+        if (!validTarget) return;
+
+        let success = false;
+        const currentUnits = state.phase.startsWith('LAB_') ? state.labUnits[state.activePlayerId] : state.battleUnits;
+
+        if (category === 'unit') {
+            if (UNIT_TYPES[type]) {
+                const newUnit = new Unit(x, y, type, state.activePlayerId, state.nextSpawnAngle);
+                if (savedMutations && savedMutations.length > 0) {
+                    savedMutations.forEach(mCode => newUnit.applyGeneticCard(mCode));
+                }
+                currentUnits.push(newUnit);
                 if (state.activePlayerId === 'player') state.playerATP -= cost; else state.enemyATP -= cost;
-                showDamageNumber(`${type}`, targetUnit.x, targetUnit.y, '#00ff00');
                 success = true;
             }
+        } else if (category === 'mutation') {
+            if (targetUnit) {
+                if (type === 'EXTRA_PIPETTE') {
+                    if(!state.pipettes) state.pipettes = { player: 3, enemy: 3 };
+                    state.pipettes[state.activePlayerId] = Math.min(9, state.pipettes[state.activePlayerId] + 3);
+                    showDamageNumber(`+3 🧪 PIPETA`, targetUnit.x, targetUnit.y, '#00cec9');
+                    if (state.activePlayerId === 'player') state.playerATP -= cost; else state.enemyATP -= cost;
+                    success = true;
+                } else if (type === 'MITOSIS') {
+                    const clone = new Unit(targetUnit.x + targetUnit.radius + 10, targetUnit.y, targetUnit.type, state.activePlayerId, state.nextSpawnAngle);
+                    if (targetUnit.appliedMutations) { targetUnit.appliedMutations.forEach(mCode => clone.applyGeneticCard(mCode)); }
+                    currentUnits.push(clone);
+                    if (state.activePlayerId === 'player') state.playerATP -= cost; else state.enemyATP -= cost;
+                    showDamageNumber(`➗ KLON!`, targetUnit.x, targetUnit.y - 20, '#9b59b6');
+                    success = true;
+                } else {
+                    targetUnit.applyGeneticCard(type);
+                    if (state.activePlayerId === 'player') state.playerATP -= cost; else state.enemyATP -= cost;
+                    showDamageNumber(`${type}`, targetUnit.x, targetUnit.y, '#00ff00');
+                    success = true;
+                }
+            }
         }
-    }
 
-    if (success) {
-        const playedCard = state.hands[state.activePlayerId].splice(index, 1)[0];
-        if (!state.phase.startsWith('LAB_')) {
-            if (!state.discards[state.activePlayerId]) state.discards[state.activePlayerId] = [];
-            state.discards[state.activePlayerId].push(playedCard);
+        if (success) {
+            const playedCard = state.hands[state.activePlayerId].splice(index, 1)[0];
+            if (!state.phase.startsWith('LAB_')) {
+                if (!state.discards[state.activePlayerId]) state.discards[state.activePlayerId] = [];
+                state.discards[state.activePlayerId].push(playedCard);
+            }
+            renderHands();
+            updateUI();
         }
-        renderHands();
-        updateUI();
-    }
-    state.dragPreview = null;
-});
+        state.dragPreview = null;
+    });
+}
 
 export function showBioModal(cardData) {
     let overlay = document.getElementById('bio-modal-overlay');
